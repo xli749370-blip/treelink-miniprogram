@@ -1,0 +1,138 @@
+<!-- ===========================================================================
+平衡车控制页（2026-10-23 落地自 design/balance-car-preview.html 定稿）
+结构（竖屏，全部绝对定位 —— 预览是手机框内绝对布局，1:1 移植）：
+  .top       顶部状态行：连接胶囊（点按 = 连接/断开）+ 横竖屏切换键 + 个性键（1/2/3 循环）
+             + 未连接时 IP/端口输入、已连接时电量胶囊（三态二选一显示）
+  .dial      中央仪表盘：canvas 速度弧（210°+ 量程）+ 玻璃泡（前后倾角）
+             + 速度读数 + 平衡状态字 + 倾角读数
+  .feat      功能键行：灯光 / 档位 / 鸣笛
+  .stick     行驶摇杆（前后速度 左右转向）
+  .main-key  平衡主键（点按启动 / 长按关闭 / 未连接拒绝）
+配色与布局尺寸：预览 1px → 2rpx；横屏用 vh/vw（见 wxss 末尾覆盖段）。
+反馈纪律：键体 transform/box-shadow 只归按下；外扩/内收走 .fx-ring 真节点；
+真机不渲染伪元素动画 —— 全部动效都是真实节点。
+============================================================================ -->
+<view class="page page-enter theme-{{persona}} {{isLand ? 'land' : ''}} {{flip ? 'flip' : ''}}">
+  <!-- 背景纪律（2026-10-23）：页面渐变只画 .page 这一层；page 元素平色兜底。
+       个性皮肤（2026-10-24 补齐）：theme-1/2/3 由顶行个性键循环切换；
+       背景三段渐变 token 见 app.wxss（.page.theme-N 自动换档），
+       车控部件 token --bk-* 的 T2/T3 覆盖见 balance.wxss。 -->
+  <view class="body" style="top: {{padTop}}px">
+    <!-- 灯光开启时仪表区底部亮起暖光（overlay，pointer-events:none） -->
+    <view class="headlight {{lightOn ? 'on' : ''}}"></view>
+
+    <!-- ======== 顶部状态行 ======== -->
+    <view class="top">
+      <view class="top-g">
+        <view class="pill conn {{connecting ? 'connecting' : ''}} {{pressed == 'conn' ? 'btn-down' : ''}}"
+              hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="conn">
+          <view class="dot"></view>
+          <text>{{connText}}</text>
+        </view>
+        <!-- 横竖屏切换（页面内 utility 键：紧挨「已连接」右侧，与预览一致） -->
+        <view class="or-btn {{pressed == 'orient' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="orient">
+          <view class="or-ico"><view class="or-home"></view></view>
+        </view>
+        <!-- 个性键：圆形小键，循环 个性1→2→3（横竖屏同一枚，尺寸见 wxss 覆盖） -->
+        <view class="persona-key {{pressed == 'persona' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="persona">
+          <text class="pk-cap">个性</text>
+          <text class="pk-n">{{persona}}</text>
+        </view>
+      </view>
+      <!-- 未连接：IP/端口输入（连接胶囊 = 连接键）；已连接：电量胶囊 -->
+      <block wx:if="{{!connected}}">
+        <input class="ip" value="{{ip}}" bindinput="onIp" placeholder="车控 IP" />
+        <input class="port" value="{{port}}" bindinput="onPort" placeholder="端口" type="number" />
+      </block>
+      <view class="pill batt" wx:else>
+        <view class="batt-case"><view class="batt-fill" style="width: {{battPct}}%"></view></view>
+        <text>{{tm.vbat}} V</text>
+      </view>
+    </view>
+
+    <!-- ======== 中央仪表盘 ======== -->
+    <view class="dial">
+      <canvas type="2d" id="dial" class="dial-cv"></canvas>
+      <view class="bubble-glass">
+        <view class="glass-mark"></view>
+        <view class="bubble {{tiltOver ? 'over' : ''}}" style="{{bubbleStyle}}"></view>
+      </view>
+      <view class="speed">
+        <view class="num {{running ? 'is-run' : ''}}">{{spdText}}</view>
+        <view class="unit">KM/H</view>
+      </view>
+      <view class="bal-state {{running ? 'is-run' : ''}}">{{balStateText}}</view>
+      <view class="tilt-read {{tiltOver ? 'over' : ''}}">倾角 {{tiltText}}</view>
+    </view>
+
+    <!-- ======== 功能键行（灯光 / 档位 / 鸣笛） ======== -->
+    <view class="feat">
+      <view class="key {{lightOn ? 'light-on' : ''}} {{pressed == 'light' ? 'btn-down' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="light">
+        <view class="k-ico ico-light"><view class="lt-body"></view><view class="lt-beam"></view></view>
+        <text class="k-lbl">{{lightOn ? '已开' : '灯光'}}</text>
+        <view class="fx-ring {{lightFx}}"></view>
+      </view>
+      <view class="key {{pressed == 'gear' ? 'btn-down' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="gear">
+        <view class="k-ico ico-gear"><view class="gg-ring"></view><view class="gg-needle" style="transform: translate(-50%, -100%) rotate({{gearDeg}}deg)"></view></view>
+        <text class="k-lbl">{{gearName}}</text>
+        <view class="fx-ring {{gearFx}}"></view>
+      </view>
+      <view class="key horn {{pressed == 'horn' ? 'btn-down' : ''}} {{hornFx == 'burst' ? 'honk' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="horn">
+        <view class="k-ico ico-horn"><view class="hn-body"></view><view class="hn-c"><view class="hn-rot"></view></view></view>
+        <text class="k-lbl">鸣笛</text>
+        <view class="fx-ring {{hornFx}}"></view>
+      </view>
+    </view>
+
+    <!-- ======== 行驶摇杆 ========
+         .stick      底座（碗）
+           .stick-layer 触及层：catch 前缀收全部触摸，顺带掐掉页面滚动
+             .stick-knob  位移层：transform 由 setData 的 style 字符串驱动
+               .stick-cap   可视胶帽（固定深蓝，grab 按下态写在 class 上）
+      摇杆架构与无人机页同款：逻辑层 catchtouch*、16ms 按帧合并 + 0.5px 量化
+      （WXS 方案已判死刑，勿再试）。 -->
+    <view class="stick {{stickFwd ? 'fwd' : ''}} {{stickBack ? 'back' : ''}}" id="driveStick">
+      <view class="stick-hint"></view>
+      <view class="stick-hint2"></view>
+      <view class="stick-layer"
+            catchtouchstart="onStickStart" catchtouchmove="onStickMove"
+            catchtouchend="onStickEnd" catchtouchcancel="onStickEnd">
+        <view class="stick-knob" style="{{knobStyle}}">
+          <view class="stick-cap {{stickActive ? 'grab' : ''}}"><view class="cap-dot"></view></view>
+        </view>
+      </view>
+    </view>
+    <view class="stick-name">行驶摇杆 · 前后速度 左右转向</view>
+
+    <!-- ======== 平衡主键 ========
+         点按启动（外扩）→ 绿面呼吸运行中；长按 800ms 关闭（内收 + 重振动）；
+         未连接 / 运行中误点按 → 红框零位移闪烁（shake 已判死刑）。
+         长按定时器自己实现（bindlongpress 会与按下态打架，无人机页教训）。
+         idle 扫光 = transform 位移带（background-position 方案循环接缝必跳）。 -->
+    <view class="main-key {{running ? 'running' : ''}} {{mainRefuse ? 'to-refuse' : ''}} {{pressed == 'main' ? 'btn-down' : ''}}" hover-class="none"
+          bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+          data-key="main">
+      <view class="mk-face"></view>
+      <view class="scan"></view>
+      <view class="mk-ico"><view class="ring"></view><view class="axis"></view><view class="wheel"></view></view>
+      <text class="mk-lbl">{{running ? '平衡中' : '启动平衡'}}</text>
+      <view class="fx-ring {{mainFx}}"></view>
+    </view>
+    <view class="main-key-name">平衡主键</view>
+
+    <view class="telemetry">{{telemetryText}}</view>
+    <view class="homebar"></view>
+  </view>
+</view>

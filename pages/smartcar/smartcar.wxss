@@ -1,0 +1,477 @@
+/* ===========================================================================
+智能车控制页（2026-10-24 落地，样式骨架移植自平衡车页）
+换算口径：预览 1px → 2rpx（750 设计宽）；横屏用 vh/vw（rpx 按长边换算全是坑）。
+配色：与平衡车页同一套车控 token（--bk-*）；个性皮肤 T2/T3 只换部件 token，
+背景三段渐变换档由 app.wxss 的 .page.theme-N 自动生效（--t-bg-*）。
+背景纪律：页面渐变只画 .page 这一层；page 元素平色兜底（app.wxss）；
+headlight 暖光 overlay 不算背景（内容反馈层，透明度极低）。
+=========================================================================== */
+.page {
+  /* 车控专用 token（与 balance.wxss 同值） */
+  --bk-txt: #dfe8f4;
+  --bk-steel: #8fa3bd;
+  --bk-ok: #2e7fc4;
+  --bk-ok-br: #3a94dd;
+  --bk-run: #34c98e;
+  --bk-run-br: #4fe0a8;
+  --bk-danger: #e05a5a;
+  --bk-amber: #e0a84a;
+  --bk-key-face: #16283f;
+  --bk-key-cap: #05090f;
+  --bk-key-edge: rgba(255, 255, 255, 0.14);
+  --bk-panel: rgba(22, 40, 63, 0.72);
+  --bk-shade-out: rgba(0, 0, 0, 0.45);
+
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  /* 页面背景：三段纵向渐变（token 见 app.wxss，单层绘制 —— 背景纪律） */
+  background: linear-gradient(180deg, var(--t-bg-hi) 0%, var(--t-bg-md) 52%, var(--t-bg-lo) 100%);
+  color: var(--bk-txt);
+}
+/* ---------- 个性皮肤（与 balance.wxss 同值）---------- */
+.page.theme-2 {
+  --bk-key-face: #221d3e;
+  --bk-panel: rgba(34, 29, 62, 0.72);
+}
+.page.theme-3 {
+  --bk-txt: #22314a;
+  --bk-steel: #5c6f8c;
+  --bk-key-face: #f6f9fd;
+  --bk-key-cap: #93a5c0;
+  --bk-panel: rgba(255, 255, 255, 0.8);
+  --bk-shade-out: rgba(80, 100, 140, 0.35);
+  --bk-key-edge: rgba(30, 50, 90, 0.18);
+}
+/* T3 冰川：深底部件反转 */
+.page.theme-3 .dial-chip { background: rgba(230, 240, 250, 0.7); border-color: rgba(40, 70, 120, 0.25); }
+.page.theme-3 .stick-cap {
+  box-shadow: 0 10rpx 0 #0b1526, 0 16rpx 32rpx rgba(50, 75, 120, .30),
+              inset 0 0 0 2rpx rgba(255, 255, 255, .16), inset 0 4rpx 8rpx rgba(255, 255, 255, .12);
+}
+.page.theme-3 .stick-cap.grab {
+  box-shadow: 0 4rpx 0 #0b1526, 0 6rpx 12rpx rgba(50, 75, 120, .30),
+              inset 0 0 0 2rpx rgba(255, 255, 255, .22), inset 0 4rpx 8rpx rgba(255, 255, 255, .18);
+}
+/* T3 键面近白 → 白扫光不可见，换冷调钢蓝高光 */
+.page.theme-3 .main-key .scan {
+  background: linear-gradient(100deg, transparent, rgba(88, 132, 204, .10) 30%,
+             rgba(88, 132, 204, .22) 50%, rgba(88, 132, 204, .10) 70%, transparent);
+}
+.page.theme-3 .homebar { background: rgba(30, 50, 90, 0.3); }
+.page.theme-3 .speed .num { text-shadow: 0 0 36rpx rgba(58, 148, 221, .22); }
+/* 内容定位层：绝对定位容器的基准（top 由 JS 按胶囊高度写入） */
+.body { position: absolute; left: 0; right: 0; bottom: 0; }
+
+/* 到达长入：scale .96→1 过冲曲线，底层不淡入 */
+.page-enter { animation: lyr-enter .42s cubic-bezier(.3, 1.42, .55, 1) both; }
+@keyframes lyr-enter { from { transform: scale(.96); } to { transform: scale(1); } }
+
+/* 横竖屏切换瞬间：全屏斜向扫光盖掉"啪"地跳变 */
+.page.flip::after {
+  content: ""; position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 9;
+  background: linear-gradient(104deg,
+    transparent 26%,
+    rgba(140, 190, 255, 0.1) 42%,
+    rgba(206, 233, 255, 0.46) 50%,
+    rgba(140, 190, 255, 0.1) 58%,
+    transparent 74%);
+  transform: translateX(-125%); opacity: 0;
+}
+.page.flip::after { animation: pk-screen-flip .55s cubic-bezier(.3, .65, .3, 1); }
+@keyframes pk-screen-flip {
+  0%   { transform: translateX(-125%); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateX(125%); opacity: 0; }
+}
+
+/* ---------- 灯光暖光 overlay ---------- */
+.headlight {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  pointer-events: none; opacity: 0; transition: opacity .5s;
+  background: radial-gradient(60% 30% at 50% 100%, rgba(224, 190, 120, .14), transparent 75%);
+}
+.headlight.on { opacity: 1; }
+
+/* ---------- 顶部状态行 ---------- */
+.top {
+  position: absolute; left: 36rpx; right: 36rpx; top: 32rpx; height: 80rpx;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.top-g { display: flex; align-items: center; }
+.pill {
+  display: flex; align-items: center; gap: 14rpx; height: 60rpx;
+  padding: 0 26rpx; border-radius: 99rpx;
+  background: var(--bk-panel); font-size: 24rpx; color: var(--bk-txt);
+  box-shadow: inset 0 0 0 2rpx var(--bk-key-edge);
+  transition: transform .06s ease, box-shadow .06s ease;
+}
+.pill.btn-down { transform: translateY(4rpx); opacity: .85; }
+.dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: var(--bk-ok-br); animation: dot-breathe 2s ease-in-out infinite; }
+@keyframes dot-breathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+.pill.connecting .dot { animation-duration: .5s; background: var(--bk-amber); }
+/* 横竖屏切换键 */
+.or-btn {
+  width: 68rpx; height: 68rpx; border-radius: 50%; margin-left: 16rpx; flex: 0 0 auto;
+  background: var(--bk-panel); color: var(--bk-steel);
+  box-shadow: inset 0 0 0 2rpx var(--bk-key-edge);
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, transform .06s ease;
+}
+.or-btn.btn-down { transform: scale(.94); }
+.or-ico {
+  position: relative; width: 22rpx; height: 32rpx;
+  border: 3rpx solid currentColor; border-radius: 6rpx;
+  transition: transform .3s cubic-bezier(.3, 1.42, .55, 1);
+}
+.or-ico::after {
+  content: ""; position: absolute; left: 50%; bottom: 3rpx; width: 8rpx; height: 3rpx;
+  margin-left: -4rpx; background: currentColor; border-radius: 1rpx;
+}
+.page.land .or-ico { transform: rotate(90deg); }
+/* 个性键 */
+.persona-key {
+  width: 68rpx; height: 68rpx; border-radius: 50%; margin-left: 12rpx; flex: 0 0 auto;
+  background: var(--bk-panel); color: var(--bk-txt);
+  box-shadow: inset 0 0 0 2rpx var(--bk-key-edge);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2rpx;
+  transition: transform .06s ease, box-shadow .06s ease;
+}
+.persona-key.btn-down { transform: scale(.94); }
+.pk-cap { font-size: 15rpx; line-height: 1; color: var(--bk-steel); letter-spacing: 1rpx; }
+.pk-n { font-size: 26rpx; line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* IP / 端口输入 */
+.ip, .port {
+  height: 60rpx; border-radius: 99rpx; margin-left: 16rpx;
+  background: var(--bk-panel); color: var(--bk-txt); font-size: 24rpx;
+  padding: 0 24rpx; box-shadow: inset 0 0 0 2rpx var(--bk-key-edge);
+}
+.ip { width: 216rpx; }
+.port { width: 104rpx; }
+/* 电量胶囊 */
+.batt { gap: 14rpx; }
+.batt-case {
+  width: 44rpx; height: 22rpx; border: 3rpx solid var(--bk-steel);
+  border-radius: 6rpx; position: relative; box-sizing: border-box;
+}
+.batt-case .batt-fill { position: absolute; left: 3rpx; top: 3rpx; bottom: 3rpx; width: 70%; background: var(--bk-run); border-radius: 1rpx; }
+
+/* ---------- 中央仪表盘 ---------- */
+.dial {
+  position: absolute; left: 50%; top: 156rpx; transform: translateX(-50%);
+  width: 516rpx; height: 516rpx; border-radius: 50%;
+}
+.dial-cv { position: absolute; left: 0; top: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
+/* 循迹 / 避障状态芯片（顶部，替代平衡车的倾角泡；on 态 = 蓝亮 + 2s 呼吸） */
+.dial-chips {
+  position: absolute; left: 50%; top: 92rpx; transform: translateX(-50%);
+  display: flex; gap: 18rpx;
+}
+.dial-chip {
+  display: flex; align-items: center; gap: 10rpx; height: 38rpx; padding: 0 20rpx;
+  border-radius: 99rpx; box-sizing: border-box;
+  background: rgba(8, 14, 26, .55); border: 2rpx solid rgba(150, 180, 220, .28);
+  font-size: 20rpx; color: var(--bk-steel); letter-spacing: 1rpx;
+  transition: color .3s, border-color .3s;
+}
+.dial-chip .c-dot {
+  width: 10rpx; height: 10rpx; border-radius: 50%; background: currentColor; opacity: .45;
+  transition: opacity .3s;
+}
+.dial-chip.on { color: var(--bk-txt); border-color: rgba(120, 185, 255, .5); }
+.dial-chip.on .c-dot {
+  background: var(--bk-ok-br); opacity: 1;
+  box-shadow: 0 0 8rpx var(--bk-ok-br);
+  animation: dot-breathe 2s ease-in-out infinite;   /* 自动模式在跑 = 系统档 */
+}
+/* 速度读数 */
+.speed { position: absolute; left: 50%; top: 224rpx; transform: translateX(-50%); text-align: center; width: 400rpx; }
+.speed .num {
+  font-size: 104rpx; font-weight: 600; line-height: 1; letter-spacing: -2rpx;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 36rpx rgba(58, 148, 221, .35);
+  transition: text-shadow .3s;
+}
+.speed .num.is-run { text-shadow: 0 0 36rpx rgba(79, 224, 168, .35); }
+.speed .unit { font-size: 24rpx; color: var(--bk-steel); letter-spacing: 4rpx; margin-top: 6rpx; }
+/* 行驶状态字（运行态：绿 + 2s 呼吸 = 系统在跑） */
+.run-state {
+  position: absolute; left: 50%; top: 392rpx; transform: translateX(-50%);
+  font-size: 26rpx; color: var(--bk-steel); letter-spacing: 2rpx; white-space: nowrap;
+  transition: color .3s;
+}
+.run-state.is-run { color: var(--bk-run); animation: dot-breathe 2s ease-in-out infinite; }
+/* 前方距离读数（<20cm 近距标红） */
+.dist-read {
+  position: absolute; left: 50%; top: 444rpx; transform: translateX(-50%);
+  font-size: 22rpx; color: var(--bk-steel); font-variant-numeric: tabular-nums; letter-spacing: 1rpx;
+}
+.dist-read.near { color: var(--bk-danger); }
+
+/* ---------- 功能键行（循迹 / 避障 / 灯光） ----------
+   配方 = 平衡车槽键：位移=键帽厚度、均匀内环白边、光效全在真节点。
+   纵向参数与 balance 页 2026-10-24 重排版一致（键高 88rpx、间距 24rpx） */
+.feat { position: absolute; left: 50%; top: 680rpx; transform: translateX(-50%); display: flex; gap: 24rpx; }
+.key {
+  width: 140rpx; height: 88rpx; border-radius: 24rpx; position: relative;
+  background: var(--bk-key-face); color: var(--bk-txt);
+  font-size: 24rpx;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4rpx;
+  box-shadow: 0 8rpx 0 var(--bk-key-cap), 0 12rpx 24rpx var(--bk-shade-out),
+              inset 0 0 0 2rpx var(--bk-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, .06);
+  transition: transform .06s ease, box-shadow .06s ease, color .25s ease;
+}
+.key.btn-down { transform: translateY(8rpx);
+  box-shadow: 0 0 0 var(--bk-key-cap), 0 4rpx 8rpx var(--bk-shade-out),
+              inset 0 0 0 2rpx var(--bk-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, .06); }
+.k-lbl { line-height: 1; font-variant-numeric: tabular-nums; }
+/* 图标底座 30rpx + currentColor（全部真实节点） */
+.k-ico { position: relative; width: 30rpx; height: 30rpx; }
+/* 自动模式开态：图标整体提蓝 + 微光晕（box-shadow 只归按下，这里用 filter） */
+.key.mode-on { color: var(--bk-ok-br); }
+.key.mode-on .k-ico { filter: drop-shadow(0 0 6rpx var(--bk-ok-br)); }
+/* 循迹图标：起点 + 三段折线（S 路线） */
+.tk-d0 { position: absolute; left: 2rpx; top: 21rpx; width: 6rpx; height: 6rpx; border-radius: 50%; background: currentColor; }
+.tk-s1 { position: absolute; left: 7rpx;  top: 15rpx; width: 9rpx; height: 3rpx; border-radius: 2rpx; background: currentColor; transform: rotate(-28deg); }
+.tk-s2 { position: absolute; left: 14rpx; top: 9rpx;  width: 9rpx; height: 3rpx; border-radius: 2rpx; background: currentColor; transform: rotate(28deg); }
+.tk-s3 { position: absolute; left: 20rpx; top: 3rpx;  width: 9rpx; height: 3rpx; border-radius: 2rpx; background: currentColor; transform: rotate(-28deg); }
+/* 避障图标：中心点 + 双雷达弧（border 三边透明的圆环转 40°） */
+.av-dot { position: absolute; left: 12rpx; top: 12rpx; width: 6rpx; height: 6rpx; border-radius: 50%; background: currentColor; }
+.av-w1, .av-w2 { position: absolute; border-radius: 50%; box-sizing: border-box;
+  border: 3rpx solid transparent; border-top-color: currentColor; transform: rotate(40deg); }
+.av-w1 { left: 7rpx; top: 7rpx; width: 16rpx; height: 16rpx; }
+.av-w2 { left: 2rpx; top: 2rpx; width: 26rpx; height: 26rpx; opacity: .5; }
+/* 灯光图标：灯壳 + 光束（平衡车同款） */
+.lt-body { position: absolute; left: 4rpx; top: 6rpx; width: 18rpx; height: 18rpx;
+  border-radius: 50% 50% 45% 45%; background: currentColor; opacity: .85; }
+.lt-beam { position: absolute; right: 0; top: 10rpx; width: 8rpx; height: 10rpx;
+  background: linear-gradient(90deg, currentColor, transparent); opacity: .3; border-radius: 2rpx; }
+.key.light-on { color: var(--bk-amber); }
+.key.light-on .lt-beam { opacity: .95; box-shadow: 0 0 12rpx 2rpx rgba(224, 168, 74, .6); }
+/* ---- 开态图标动效（2026-10-24 补）："系统在跑"档 = ≥1.6s 慢循环 ----
+   循迹中：信号沿 S 线自下而上行进（三段逐个提亮）。
+   ★ tk-s1/2/3 带静态 rotate，keyframes 的 transform 会整替内联旋转 ——
+   所以三段只动 opacity，行进感由 1.8s 循环 + 0.22s 错峰给出 */
+.key.mode-on .tk-d0 { animation: tk-core 1.8s ease-in-out infinite; }
+.key.mode-on .tk-s1 { animation: tk-run 1.8s ease-in-out infinite; }
+.key.mode-on .tk-s2 { animation: tk-run 1.8s ease-in-out infinite .22s; }
+.key.mode-on .tk-s3 { animation: tk-run 1.8s ease-in-out infinite .44s; }
+@keyframes tk-run { 0%, 60%, 100% { opacity: .3; } 25% { opacity: 1; } }
+@keyframes tk-core { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+/* 避障中：雷达弧外扩扫描（声呐配方，同启动动画 sonar）。
+   ★ av-w1/w2 的静态 rotate(40deg) 必须写进每一帧（--rot 纪律），
+   否则 keyframes 一挂，弧的朝向会被冲回 0° */
+.key.mode-on .av-dot { animation: av-core 1.6s ease-in-out infinite; }
+.key.mode-on .av-w1 { animation: av-ping 1.6s ease-out infinite; }
+.key.mode-on .av-w2 { animation: av-ping 1.6s ease-out infinite .5s; }
+@keyframes av-core { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+@keyframes av-ping {
+  0%   { transform: rotate(40deg) scale(.7);  opacity: .2; }
+  30%  { opacity: 1; }
+  100% { transform: rotate(40deg) scale(1.32); opacity: .15; } }
+
+/* 外扩 / 内收环（真实节点、absolute、opacity 收尾归零） */
+.fx-ring {
+  position: absolute; left: -8rpx; top: -8rpx; right: -8rpx; bottom: -8rpx;
+  border-radius: 28rpx; border: 4rpx solid var(--bc, var(--bk-run-br));
+  opacity: 0; display: none; pointer-events: none;
+}
+.fx-ring.burst { display: block; animation: pk-fx-out .6s cubic-bezier(.2, .7, .3, 1); }
+.fx-ring.suck  { display: block; animation: pk-fx-in  .6s cubic-bezier(.2, .7, .3, 1); }
+@keyframes pk-fx-out { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.24); opacity: 0; } }
+@keyframes pk-fx-in  { 0% { transform: scale(1.24); opacity: .8; } 72% { transform: scale(1.04); opacity: .4; } 100% { transform: scale(1); opacity: 0; } }
+
+/* ---------- 行驶摇杆（配方同平衡车页：碗面 + 深蓝胶帽） ---------- */
+.stick {
+  position: absolute; left: 68rpx; bottom: 180rpx;
+  width: 256rpx; height: 256rpx; border-radius: 50%;
+  background: radial-gradient(circle at 50% 34%, rgba(70, 110, 165, .28), rgba(10, 18, 32, .55) 70%);
+  box-shadow: inset 0 0 0 2rpx var(--bk-key-edge), inset 0 12rpx 36rpx rgba(0, 0, 0, .4);
+}
+.stick-layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 1; touch-action: none; }
+.stick-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 116rpx; height: 116rpx; margin-left: -58rpx; margin-top: -58rpx;
+  pointer-events: none; will-change: transform; transform: translate3d(0, 0, 0);
+}
+.stick-cap {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 50%;
+  background: radial-gradient(circle at 42% 30%, #35507a, #1a2c48 62%, #122036);
+  box-shadow: 0 10rpx 0 #05090f, 0 16rpx 32rpx rgba(0, 0, 0, .5),
+              inset 0 0 0 2rpx rgba(255, 255, 255, .16), inset 0 4rpx 8rpx rgba(255, 255, 255, .12);
+  display: flex; align-items: center; justify-content: center;
+  transition: box-shadow .06s ease;
+}
+/* 帽心高光点（真实节点） */
+.cap-dot { width: 36rpx; height: 36rpx; border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, rgba(160, 205, 255, .5), rgba(90, 150, 240, .12) 70%, transparent 80%); }
+/* 按住（grab）：帽子下沉 */
+.stick-cap.grab {
+  box-shadow: 0 4rpx 0 #05090f, 0 6rpx 12rpx rgba(0, 0, 0, .5),
+              inset 0 0 0 2rpx rgba(255, 255, 255, .22), inset 0 4rpx 8rpx rgba(255, 255, 255, .18);
+}
+/* 摇杆方向微光 */
+.stick-hint, .stick-hint2 { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 50%; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.stick-hint  { background: radial-gradient(30% 22% at 50% 12%, rgba(120, 185, 255, .28), transparent 75%); }
+.stick-hint2 { background: radial-gradient(30% 22% at 50% 88%, rgba(120, 185, 255, .22), transparent 75%); }
+.stick.fwd  .stick-hint  { opacity: 1; }
+.stick.back .stick-hint2 { opacity: 1; }
+/* 摇杆标注：中心锚定摇杆中轴（left = 圆心 196rpx），盒收缩 + translateX(-50%) 归中 */
+.stick-name {
+  position: absolute; left: 196rpx; bottom: 136rpx; transform: translateX(-50%);
+  padding-left: 2rpx;
+  font-size: 21rpx; color: var(--bk-steel); letter-spacing: 2rpx; white-space: nowrap;
+}
+
+/* ---------- 行驶主键 ---------- */
+.main-key {
+  position: absolute; right: 88rpx; bottom: 200rpx;
+  width: 192rpx; height: 192rpx; border-radius: 50%;
+  background: var(--bk-key-face); color: var(--bk-txt);
+  box-shadow: 0 8rpx 0 var(--bk-key-cap), 0 16rpx 36rpx var(--bk-shade-out),
+              inset 0 0 0 2rpx var(--bk-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, .07);
+  transition: transform .06s ease, box-shadow .06s ease;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx;
+  overflow: hidden;   /* 扫光带裁切 */
+}
+.main-key.btn-down { transform: translateY(8rpx);
+  box-shadow: 0 0 0 var(--bk-key-cap), 0 6rpx 12rpx var(--bk-shade-out),
+              inset 0 0 0 2rpx var(--bk-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, .07); }
+/* 均匀内环白边 + 顶部单光源淡渐变 —— 走真实节点 */
+.mk-face {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 50%; pointer-events: none;
+  box-shadow: inset 0 0 0 4rpx rgba(255, 255, 255, .16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, 0) 42%);
+}
+/* idle 扫光（transform 位移带定稿配方：独立光带 skewX 斜切匀速平移，
+   起止点都藏在键外，接缝不可见） */
+.main-key .scan {
+  position: absolute; top: -12%; bottom: -12%; left: 0; width: 45%; pointer-events: none;
+  transform: translateX(-190%) skewX(-18deg);
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .06) 30%,
+             rgba(255, 255, 255, .17) 50%, rgba(255, 255, 255, .06) 70%, transparent);
+  animation: mk-scan 2.6s linear infinite;
+}
+@keyframes mk-scan {
+  0%   { transform: translateX(-190%) skewX(-18deg); }
+  100% { transform: translateX(250%) skewX(-18deg); }
+}
+/* 智能车图标：俯视车壳 + 四轮 + 前视传感器（真实节点） */
+.mk-ico { position: relative; width: 60rpx; height: 60rpx; }
+.mk-ico .sc-body { position: absolute; left: 18rpx; top: 10rpx; width: 24rpx; height: 40rpx;
+  border: 4rpx solid currentColor; border-radius: 7rpx; box-sizing: border-box; opacity: .95; }
+.mk-ico .sc-w { position: absolute; width: 10rpx; height: 14rpx; border-radius: 3rpx; background: currentColor; }
+.mk-ico .sc-w.w1 { left: 6rpx;  top: 12rpx; }
+.mk-ico .sc-w.w2 { left: 44rpx; top: 12rpx; }
+.mk-ico .sc-w.w3 { left: 6rpx;  top: 34rpx; }
+.mk-ico .sc-w.w4 { left: 44rpx; top: 34rpx; }
+.mk-ico .sc-sen { position: absolute; left: 27rpx; top: 16rpx; width: 6rpx; height: 6rpx; border-radius: 50%; background: currentColor; }
+.main-key .mk-lbl { font-size: 22rpx; line-height: 1.25; text-align: center; white-space: nowrap; }
+/* 运行态：绿键面 + 传感器呼吸（≥2s 系统在跑档） */
+.main-key.running { background: linear-gradient(180deg, #1f7a58, #14563e); color: #eafff5;
+  animation: mk-breathe 2s ease-in-out infinite; }
+.main-key.running .sc-sen { animation: sen-pulse 1.2s ease-in-out infinite; }
+.main-key.running .scan { display: none; }
+@keyframes mk-breathe { 0%, 100% { filter: brightness(.92); } 50% { filter: brightness(1.12); } }
+@keyframes sen-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; box-shadow: 0 0 8rpx rgba(234, 255, 245, .8); } }
+/* 拒绝反馈：零位移红框闪烁（shake 已判死刑） */
+.main-key.to-refuse { animation: pk-refuse .5s ease-out; }
+@keyframes pk-refuse {
+  0%, 42%  { box-shadow: 0 8rpx 0 var(--bk-key-cap), 0 16rpx 36rpx var(--bk-shade-out), inset 0 0 0 5rpx rgba(224, 90, 90, .95); }
+  20%, 62% { box-shadow: 0 8rpx 0 var(--bk-key-cap), 0 16rpx 36rpx var(--bk-shade-out), inset 0 0 0 5rpx rgba(224, 90, 90, .25); }
+  100%     { box-shadow: 0 8rpx 0 var(--bk-key-cap), 0 16rpx 36rpx var(--bk-shade-out), inset 0 0 0 5rpx rgba(224, 90, 90, 0); }
+}
+.main-key .fx-ring { border-radius: 50%; }
+/* 主键外扩/内收环颜色：启动 = 绿；关闭 = 钢蓝（收拢读作"交回控制权"） */
+.main-key .fx-ring.burst { --bc: var(--bk-run-br); }
+.main-key .fx-ring.suck  { --bc: var(--bk-ok-br); }
+.main-key-name {
+  position: absolute; right: 88rpx; bottom: 144rpx; width: 192rpx; text-align: center;
+  font-size: 21rpx; color: var(--bk-steel); letter-spacing: 4rpx;
+}
+
+/* ---------- 遥测行 / home 条 ---------- */
+.telemetry {
+  position: absolute; left: 36rpx; right: 36rpx; bottom: 64rpx; text-align: center;
+  font-size: 23rpx; color: var(--bk-steel); font-variant-numeric: tabular-nums; letter-spacing: 1rpx;
+  white-space: nowrap; overflow: hidden;
+}
+.homebar {
+  position: absolute; left: 50%; bottom: 16rpx; transform: translateX(-50%);
+  width: 240rpx; height: 8rpx; border-radius: 4rpx; background: rgba(255, 255, 255, .22);
+}
+
+
+/* ============================================================
+   横屏操控态（812×375 → vh/vw）：与平衡车页同一换算口径 ——
+   纵向/尺寸 = 预览px ÷ 375 × 100vh；横向位置 = 预览px ÷ 812 × 100vw。
+   级联纪律：.page.land 覆盖块放样式表末尾（同特异性覆盖必须靠后）
+   ============================================================ */
+.page.land .body .top { left: 2vw; right: 2vw; top: 2.1vh; height: 8.5vh; justify-content: flex-start; }
+.page.land .body .batt { margin-left: 2vh; }
+.page.land .body .pill { height: 6.9vh; font-size: 2.9vh; padding: 0 2.9vh; gap: 1.3vh; }
+.page.land .body .dot { width: 1.9vh; height: 1.9vh; }
+.page.land .body .or-btn { width: 9vh; height: 9vh; margin-left: 2vh; }
+.page.land .body .persona-key { width: 9vh; height: 9vh; margin-left: 2vh; gap: 0.4vh; }
+.page.land .body .pk-cap { font-size: 2.2vh; }
+.page.land .body .pk-n { font-size: 3.4vh; }
+.page.land .body .or-ico { width: 2.9vh; height: 4.3vh; border-width: 0.4vh; border-radius: 0.8vh; }
+.page.land .body .or-ico::after { width: 1.1vh; height: 0.4vh; margin-left: -0.55vh; bottom: 0.4vh; }
+.page.land .body .ip, .page.land .body .port { height: 6.9vh; font-size: 2.9vh; margin-left: 2vh; }
+.page.land .body .ip { width: 30vh; }
+.page.land .body .port { width: 16vh; }
+.page.land .body .batt-case { width: 5.9vh; height: 2.9vh; border-width: 0.4vh; border-radius: 0.8vh; }
+/* 仪表盘：缩为陪衬（与平衡车横屏同参数） */
+.page.land .body .dial { top: 50.75%; transform: translate(-50%, -50%) scale(.78); width: 68.8vh; height: 68.8vh; }
+.page.land .body .dial-chips { top: 12.3vh; gap: 2.4vh; }
+.page.land .body .dial-chip { height: 5.1vh; padding: 0 2.7vh; gap: 1.3vh; font-size: 2.7vh; border-width: 0.5vh; }
+.page.land .body .dial-chip .c-dot { width: 1.3vh; height: 1.3vh; }
+.page.land .body .speed { top: 29.9vh; width: 53.4vh; }
+.page.land .body .speed .num { font-size: 13.9vh; letter-spacing: -0.5vh; text-shadow: 0 0 9.6vh rgba(58, 148, 221, .35); }
+.page.land .body .speed .num.is-run { text-shadow: 0 0 9.6vh rgba(79, 224, 168, .35); }
+.page.land .body .speed .unit { font-size: 3.2vh; letter-spacing: 1vh; margin-top: 1.6vh; }
+.page.land .body .run-state { top: 52.3vh; font-size: 3.5vh; letter-spacing: 0.5vh; }
+.page.land .body .dist-read { top: 59.2vh; font-size: 2.9vh; }
+/* 功能键：主键上方竖列（底部锚定，与 padTop 解耦 —— 平衡车页冲突修复同款） */
+.page.land .body .feat { left: auto; top: auto; bottom: 42.5vh; right: 10.1vw; transform: none; flex-direction: column; gap: 2.7vh; align-items: center; }
+.page.land .body .key { width: 16.5vh; height: 11.7vh; border-radius: 3.2vh; font-size: 3.1vh; gap: 1vh;
+  box-shadow: 0 2.1vh 0 var(--bk-key-cap), 0 3.2vh 6.4vh var(--bk-shade-out),
+              inset 0 0 0 0.5vh var(--bk-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, .06); }
+.page.land .body .key.btn-down { transform: translateY(2.1vh);
+  box-shadow: 0 0 0 var(--bk-key-cap), 0 1.1vh 2.1vh var(--bk-shade-out),
+              inset 0 0 0 0.5vh var(--bk-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, .06); }
+.page.land .body .k-ico { transform: scale(.87); }
+.page.land .body .fx-ring { border-radius: 3.2vh; border-width: 0.6vh; left: -1.1vh; top: -1.1vh; right: -1.1vh; bottom: -1.1vh; }
+/* 主键：横屏主体之一 */
+.page.land .body .main-key { right: 7.5vw; bottom: 8vh; width: 27.7vh; height: 27.7vh; gap: 1vh;
+  box-shadow: 0 2.1vh 0 var(--bk-key-cap), 0 4.3vh 9.6vh var(--bk-shade-out),
+              inset 0 0 0 0.5vh var(--bk-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, .07); }
+.page.land .body .main-key.btn-down { transform: translateY(2.1vh);
+  box-shadow: 0 0 0 var(--bk-key-cap), 0 1.6vh 3.2vh var(--bk-shade-out),
+              inset 0 0 0 0.5vh var(--bk-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, .07); }
+.page.land .body .main-key .mk-face { box-shadow: inset 0 0 0 1vh rgba(255, 255, 255, .16); }
+.page.land .body .main-key .mk-lbl { font-size: 2.9vh; }
+/* 主键图标：60rpx 基准 → 16vh（因子 0.267vh/rpx） */
+.page.land .body .main-key .mk-ico { width: 16vh; height: 16vh; }
+.page.land .body .main-key .mk-ico .sc-body { left: 4.8vh; top: 2.7vh; width: 6.4vh; height: 10.7vh; border-width: 1.1vh; border-radius: 1.9vh; }
+.page.land .body .main-key .mk-ico .sc-w { width: 2.7vh; height: 3.7vh; border-radius: 0.8vh; }
+.page.land .body .main-key .mk-ico .sc-w.w1 { left: 1.6vh;  top: 3.2vh; }
+.page.land .body .main-key .mk-ico .sc-w.w2 { left: 11.7vh; top: 3.2vh; }
+.page.land .body .main-key .mk-ico .sc-w.w3 { left: 1.6vh;  top: 9.1vh; }
+.page.land .body .main-key .mk-ico .sc-w.w4 { left: 11.7vh; top: 9.1vh; }
+.page.land .body .main-key .mk-ico .sc-sen { left: 7.2vh; top: 4.3vh; width: 1.6vh; height: 1.6vh; }
+.page.land .body .main-key-name { right: 7.5vw; bottom: 36.8vh; width: 27.7vh; font-size: 2.7vh; letter-spacing: 0.5vh; }
+/* 摇杆：横屏第一主体，40vh */
+.page.land .body .stick { left: 7vw; bottom: 9vh; width: 40vh; height: 40vh;
+  box-shadow: inset 0 0 0 0.5vh var(--bk-key-edge), inset 0 1.9vh 5.6vh rgba(0, 0, 0, .4); }
+.page.land .body .stick-knob { width: 17vh; height: 17vh; margin-left: -8.5vh; margin-top: -8.5vh; }
+.page.land .body .stick-cap { box-shadow: 0 1.5vh 0 #05090f, 0 2.4vh 4.7vh rgba(0, 0, 0, .5),
+  inset 0 0 0 0.5vh rgba(255, 255, 255, .16), inset 0 0.6vh 1.2vh rgba(255, 255, 255, .12); }
+.page.land .body .stick-cap.grab { box-shadow: 0 0.6vh 0 #05090f, 0 0.9vh 1.8vh rgba(0, 0, 0, .5),
+  inset 0 0 0 0.5vh rgba(255, 255, 255, .22), inset 0 0.6vh 1.2vh rgba(255, 255, 255, .18); }
+.page.land .body .cap-dot { width: 5.3vh; height: 5.3vh; }
+.page.land .body .stick-name { left: calc(7vw + 20vh); bottom: 50.4vh; transform: translateX(-50%); padding-left: 0.6vh; font-size: 2.7vh; letter-spacing: 0.6vh; }
+/* 遥测与 home 条压扁 */
+.page.land .body .telemetry { bottom: 2.7vh; font-size: 2.8vh; }
+.page.land .body .homebar { width: 25.6vh; height: 0.8vh; bottom: 1.1vh; }

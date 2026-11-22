@@ -1,0 +1,3478 @@
+.page {
+  padding: 16rpx;
+  /* 页面背景延用平衡车控制界面：上亮下暗三段纵向渐变（token 见 app.wxss）。
+     theme-2/3 在同一元素上覆盖 --t-bg-hi/md/lo，这里一条规则三套全吃到。
+     【单层绘制纪律：不在背景上叠背景】页面渐变只画在这一层 ——
+     page 元素保持平色兜底，theme 块只换 token 不另画 background。
+     min-height 拉满视口：渐变画在 .page 视图上，内容不满一屏时
+     不能露出底下 page 元素的兜底平色（T3 会读到一块深色）。 */
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--t-bg-hi) 0%, var(--t-bg-md) 52%, var(--t-bg-lo) 100%);
+  color: var(--t-text);
+}
+
+.topbar {
+  display: flex;
+  gap: 10rpx;
+  margin-bottom: 10rpx;
+}
+
+/* 顶栏左侧组：IP / 端口 / 连接（横屏时切换按钮在其右侧、靠最右） */
+.tb-main {
+  display: flex;
+  gap: 10rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 输入框 = 胶囊面板（2026-11-15 对标平衡车 .ip/.port：panel 底 + 内环线，替代旧凹槽）。
+   胶囊读作"嵌在面板上的槽位"，内环线是唯一的边界语言 —— 不再用 inset 阴影模拟凹陷。 */
+.ip, .port {
+  flex: 1;
+  background: var(--t-panel);
+  color: var(--t-text);
+  border-radius: 99rpx;
+  padding: 10rpx 14rpx;
+  font-size: 24rpx;
+  box-shadow: inset 0 0 0 2rpx var(--t-key-edge);
+}
+
+.port {
+  flex: 0 0 130rpx;
+}
+
+/* 连接按钮：用 flex 真正居中图标 + 文字。
+   为什么不靠 text-align：竖屏这一行的高度由旁边的输入框撑（≈49rpx），按钮被拉伸到同高，
+   而 button 自带 line-height:2.5556(≈61rpx) 的行盒比按钮本身还高 → 行盒从顶端排起、
+   向下溢出，内容因此偏离垂直中线（看起来"没居中"）。改成 flex 后行盒消失，
+   水平/垂直都交给 justify-content / align-items 精确控制，与按钮多高无关。 */
+.conn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 彩色态 = 同色系纵向渐变（顶部受光），高光取 --t-acc-conn-hi（随主题自动换档）。
+     只写 background-color/-image，不写 shorthand —— 保留公共键帽组的内环白边。 */
+  background-color: var(--t-accent);
+  background-image: linear-gradient(180deg, var(--t-acc-conn-hi), var(--t-accent));
+  color: var(--t-on-accent);
+  font-size: 24rpx;
+  padding: 0 24rpx;
+  margin: 0;
+}
+
+.statusrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10rpx;
+  margin-bottom: 6rpx;
+}
+
+.status {
+  font-size: 22rpx;
+  color: var(--t-text-dim);
+  flex: 1;
+  /* 按钮加图标后这一行可用宽度变窄：宁可截断，也不许换行 ——
+     一旦折成两行，状态行变高会把竖屏下面的摇杆/按钮整体顶下去 */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 切换横竖屏：与 .conn / .arm 一样用 flex 居中。
+   ⚠️ 不能靠 line-height 居中 —— 内容里的 .lbl 是 inline-flex + vertical-align:middle，
+   行内对齐的基准是「基线 + 半个 x 字高」而不是行盒中线；横屏按钮字号放大到
+   min(4.8vh,2.4vw) 后，这点偏差就是肉眼可见的「内容没在正中」。flex 后行盒消失，两轴精确居中。
+   竖屏高度靠 min-height 补回来：原来由 line-height:1.8(≈39.6rpx)+4rpx 边框撑出 ≈44rpx，
+   flex 后行盒消失会塌到 ≈30rpx，所以显式给 44rpx 锁死（横屏用 height:10vh，故要清零）。
+   box-sizing:border-box 让 min-height 含边框，并与横屏 .ip/.port 的 10vh 口径统一。 */
+.orient {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44rpx;
+  /* 胶囊 utility 键（预览 .kb.pill）：键面同其他键，胶囊圆角区分"页面功能键"与"飞行操作键" */
+  background-color: var(--t-key-face);
+  color: var(--t-text);
+  font-size: 22rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  flex: 0 0 auto;
+  line-height: 1.8;
+}
+
+/* ===================== 竖版：陀螺仪居中 + 姿态右上 + 精简参数 ===================== */
+.topinfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 4rpx;
+}
+
+.params {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  flex: 1;
+}
+
+.pk2 {
+  font-size: 22rpx;
+  color: var(--t-text-dim);
+}
+
+/* 空值灰化：'--'（还没收到遥测）和 '0.00'（真的为零）在深色底上看起来一样，
+   飞行中容易误读成"速度 0"。让未连接时的整行退到几乎只剩轮廓。 */
+.pk2.is-empty {
+  color: var(--t-border);
+}
+
+.att-corner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 180rpx;
+}
+
+.hud-mini {
+  width: 160rpx;
+  height: 160rpx;
+}
+
+.att-cap {
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  color: var(--t-text-dim);
+}
+
+.gyro-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 4rpx 0 10rpx;        /* 2026-10-18：为上方模式行腾出纵向空间（原 8/18rpx） */
+}
+
+/* 圆盘 + 四键的公共定位层：高度 = 圆盘直径。
+   ⚠️ 上面加了"自动循迹/避障"一行之后，圆盘不再和 .gyro-center 的中心重合，
+   四键如果仍按 .gyro-center 定位就会整体偏下 —— 所以把它们挪进这一层，
+   `top:50%` 从此恒等于**圆盘圆心**，上面增减任何东西都不会带偏四键。 */
+.gyro-stage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* 陀螺仪：与摇杆大小一致并放大一点点（摇杆 240rpx → 260rpx）
+   ⚠️ 2026-10-18：260 → 240rpx。上方新增"自动循迹/避障"一行要 38px，
+   实测竖屏底部只剩 8px 余量，只能从圆盘里让 —— 让完四键仍完全落在盘内（见 .vz-slot）。 */
+.gyro-big {
+  width: 232rpx;
+  height: 232rpx;
+}
+
+.gyro-cap {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--t-text-dim);
+}
+
+/* ===================== 双摇杆（基础尺寸，竖屏 240rpx） ===================== */
+.sticks {
+  display: flex;
+  justify-content: space-around;
+  margin: 6rpx 0;              /* 2026-10-18：为上方模式行腾出纵向空间（原 18rpx） */
+}
+
+.stick-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 摇杆底座（2026-10-23 延用平衡车控制界面配方，px→rpx ×2）：
+   碗面 = 径向渐变（左上受光），不用平色 + 描边；
+   内圈一圈细白环 + 上沿大片内阴影压出"凹"的深度。 */
+.stick-base {
+  position: relative;
+  width: 240rpx;
+  height: 240rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 34%, rgba(70, 110, 165, 0.28), rgba(10, 18, 32, 0.55) 70%);
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 0 0 2rpx var(--t-edge-light),
+    inset 0 12rpx 36rpx rgba(0, 0, 0, 0.4);
+}
+
+/* 按下态：碗再压深一档 + 内圈亮起（grip-on 随 accent，"手指已压上"余光可见） */
+.stick-base.pressed {
+  box-shadow:
+    inset 0 0 0 2rpx var(--t-edge-light),
+    inset 0 16rpx 48rpx rgba(0, 0, 0, 0.4),
+    inset 0 0 0 4rpx var(--t-grip-on);
+}
+
+/* 触及层：铺满底座，专门负责收触摸。
+   为什么不直接把事件挂在 .stick-base 上：
+   摇杆帽要由 WXS 直接改 transform，而 WXS 只能拿到「触发事件的节点」以及它的子节点
+   （e.instance.selectComponent）。帽子必须在这一层内部，才能一步取到。
+   touch-action:none 关掉浏览器自己的手势判定 —— 否则 WebView 要先等 ~几十毫秒
+   判断"这是不是滚动"，拖动才迟迟不开工。 */
+.stick-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  touch-action: none;
+}
+
+/* 位移层：只有 transform 变化，由 WXS 在视图层直接写入。
+   will-change 让浏览器把它提成独立图层 → 拖拽时只做合成（composite），
+   不重绘那圈带模糊的 box-shadow；这是"跟手但又不掉帧"的关键。
+   pointer-events:none 保证触摸永远落在下面的 .stick-layer 上（帽子不抢事件）。 */
+.stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 76rpx;
+  height: 76rpx;
+  margin-left: -38rpx;
+  margin-top: -38rpx;
+  pointer-events: none;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+/* 可视圆帽（2026-10-23 延用平衡车配方，px→rpx ×2）：
+   固定深蓝胶帽（三套个性同款，不随 accent 换色）——左上受光径向渐变 +
+   底部 10rpx 侧壁（键帽厚度）+ 落地投影 + 内圈白边/顶沿高光。
+   与位移层拆开是为了让「按下的放大」和「跟手位移」互不覆盖：
+   位移写在 .stick-knob 的 inline style 上，按下态写在 .knob-cap 的 class 上。 */
+.knob-cap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 30%, #35507a, #1a2c48 62%, #122036);
+  box-shadow:
+    0 10rpx 0 #05090f,
+    0 16rpx 32rpx rgba(0, 0, 0, 0.5),
+    inset 0 0 0 2rpx rgba(255, 255, 255, 0.16),
+    inset 0 4rpx 8rpx rgba(255, 255, 255, 0.12);
+  transition: box-shadow 0.06s ease;
+}
+
+/* 按住（= 平衡车 grab 态）：帽子下沉 —— 侧壁 10rpx→4rpx、投影收短，
+   内圈白边提亮一档。不再放大（scale），下沉本身就是"压上了"的反馈 */
+.stick-base.pressed .knob-cap {
+  box-shadow:
+    0 4rpx 0 #05090f,
+    0 6rpx 12rpx rgba(0, 0, 0, 0.5),
+    inset 0 0 0 2rpx rgba(255, 255, 255, 0.22),
+    inset 0 4rpx 8rpx rgba(255, 255, 255, 0.18);
+}
+
+/* T3 极昼（同平衡车冰川主题的修正）：--t-key-cap 是给浅色键面配的侧壁，
+   摇杆帽是固定深色胶帽 —— 侧壁换近黑深蓝，外投影从纯黑换青灰柔影 */
+.page.theme-3 .knob-cap {
+  box-shadow:
+    0 10rpx 0 #0b1526,
+    0 16rpx 32rpx rgba(50, 75, 120, 0.30),
+    inset 0 0 0 2rpx rgba(255, 255, 255, 0.16),
+    inset 0 4rpx 8rpx rgba(255, 255, 255, 0.12);
+}
+.page.theme-3 .stick-base.pressed .knob-cap {
+  box-shadow:
+    0 4rpx 0 #0b1526,
+    0 6rpx 12rpx rgba(50, 75, 120, 0.30),
+    inset 0 0 0 2rpx rgba(255, 255, 255, 0.22),
+    inset 0 4rpx 8rpx rgba(255, 255, 255, 0.18);
+}
+
+.stick-label {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: var(--t-text-dim);
+}
+
+/* ===================== 电机转速（基础高度，竖屏 100rpx） ===================== */
+.motors {
+  display: flex;
+  justify-content: space-between;
+  gap: 10rpx;
+  margin-bottom: 10rpx;
+}
+
+.motor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 柱槽 = 凹槽（槽沿挡住一点光），柱体 = 灯柱（自带顶沿高光）。
+   两者一凹一凸，柱子才像"从槽里升起来"，而不是一块贴纸在变色。 */
+.m-bar {
+  width: 100%;
+  height: 100rpx;
+  background: var(--t-bg-surface);
+  border-radius: 6rpx;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  box-shadow: inset 0 3rpx 8rpx var(--t-shade-in), inset 0 -1rpx 0 var(--t-edge-light);
+}
+
+/* 柱体改中性钢灰：蓝色专指「可操作」，转速是数据不是控件。
+   之前蓝色同时表示"能点/正在操作/已激活/数据"四种意思，重点被稀释。
+   质感只加**顶沿一道受光**：柱子是数据，不该像按钮那样发亮。
+   双面高光（顶沿 + 中间一道圆柱反光）会让它比正文还抢眼，实测后砍掉。
+
+   ⚠️ 柱高用 transform: scaleY() 而不是 height：
+   遥测 10Hz 刷新，若改 height 并带 transition，每秒有 1.2 秒都在做「重排 + 重绘」，
+   把渲染线程占满 —— 这正是摇杆跟手变差的隐形元凶之一。
+   scaleY 只走合成，不触发重排，同样的观感几乎不花渲染线程。 */
+.m-fill {
+  width: 100%;
+  height: 100%;
+  transform-origin: bottom;
+  background-color: var(--t-steel);
+  background-image: linear-gradient(180deg, var(--t-edge-light), transparent 50%);
+  box-shadow: inset 0 -1rpx 0 var(--t-edge-dark);
+  transition: transform 0.12s linear;
+}
+
+.m-label {
+  font-size: 20rpx;
+  color: var(--t-text-dim);
+  margin-top: 6rpx;
+}
+
+.m-val {
+  font-size: 20rpx;
+  color: var(--t-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================== 运行状态 ===================== */
+.runline {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-bottom: 10rpx;
+  flex-wrap: wrap;
+}
+
+/* 徽章 = 胶囊面板底 + 内环线（2026-11-15 对标平衡车 .pill），不加投影 —— 它是信息不是按钮，
+   加投影会把它抬到和控件同一个层级。transition 让状态切换不"闪"。 */
+.badge {
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  background-color: var(--t-panel);
+  box-shadow: inset 0 0 0 2rpx var(--t-key-edge);
+  color: var(--t-text-dim);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.st-idle, .st-cal { color: var(--t-text-dim); }  /* 底色随 .badge 的胶囊面板，不再另写 */
+.st-armed { background: var(--t-accent); color: var(--t-on-accent); }
+.st-fly, .st-hold { background: var(--t-ok); color: var(--t-on-accent); }
+.st-avoid { background: var(--t-warn); color: var(--t-on-accent); }
+.st-land { background: var(--t-info); color: var(--t-on-accent); }
+.st-lowbat, .st-failsafe { background: var(--t-danger); color: var(--t-on-accent); }
+
+.rpmline {
+  font-size: 20rpx;
+  color: var(--t-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================== 控制按钮 ===================== */
+.controls {
+  display: flex;
+  gap: 14rpx;
+  margin: 14rpx 0;
+}
+
+/* 统一用 3rpx 透明边框占位 → 上锁态只换边框颜色，按钮尺寸不跳动 */
+.arm, .gyro {
+  flex: 1;
+  /* min-width:0：本键是 .controls 的 flex 子项，默认 min-width:auto 会按
+     内容 min-content 解析 —— 真机上 armed 态 font-weight 合成加粗 + 用户
+     系统字体放大后，文字 min-content 超过均分宽度会把键撑宽（且挤窄邻键）。
+     显式 0 = 永远按 flex-basis 均分，任何内核任何字宽都不撑键。 */
+  min-width: 0;
+  font-size: 26rpx;
+  margin: 0;
+  min-height: 88rpx;      /* ≈44pt 最小命中区（原实现无 min-height，实测约 80rpx） */
+  line-height: 82rpx;     /* 88 - 上下边框各 3rpx */
+  border: 3rpx solid transparent;
+  box-sizing: border-box;
+}
+
+/* —— 实体键帽（2026-11-15 对标平衡车配方，全键统一）——
+   底部 8rpx 实心侧壁当"键帽厚度"，按下位移 8rpx（位移量严格等于阴影 offset-y）；
+   键面 = 实心 --t-key-face + 顶部受光渐变；边界 = 均匀内环（edge 白边 + 更内一层微光），
+   不再使用外描边（描边会被圆角切出不均匀的线宽，内环永远均匀）。
+   彩色态只换 background-color / background-image，内环保留（见 .conn/.arm/.gyro.on 等）。
+   ⚠️ `.btn-down` 由 JS 的 onBtnDown/onBtnUp 挂上/摘掉（不再用 hover-class）：
+      hover-class 是基础库在原生侧实现的，快速连点时偶尔来不及应用 → 反馈会漏；
+      自己维护的类还带「最短可见 90ms」，再快的点按也看得到按下。 */
+.conn, .orient, .arm, .gyro, .climb, .descend, .act, .takeoff, .mode {
+  border: none;
+  border-radius: 24rpx;
+  background-color: var(--t-key-face);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 42%);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+  box-shadow: 0 8rpx 0 var(--t-key-cap), 0 12rpx 24rpx var(--t-shade-out),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+.conn.btn-down, .orient.btn-down, .arm.btn-down, .gyro.btn-down,
+.climb.btn-down, .descend.btn-down, .act.btn-down, .takeoff.btn-down, .mode.btn-down {
+  transform: translateY(8rpx);
+  box-shadow: 0 0 0 var(--t-key-cap), 0 4rpx 8rpx var(--t-shade-out),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+/* 胶囊 utility 键的圆角（.orient 块在公共组之前，这里覆盖才生效） */
+.orient { border-radius: 99rpx; }
+
+.arm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 解锁态绿渐变（顶部受光）：高光取 --t-ok-br-hi，随主题性格自动换档 */
+  background-color: var(--t-ok);
+  background-image: linear-gradient(180deg, var(--t-ok-br-hi), var(--t-ok));
+  color: var(--t-on-accent);
+}
+
+/* 上锁态 = 危险形态：红渐变 + 白内环 + 加粗。
+   旧版白边靠 border（边框已并入内环），改用 inset 白环 —— 同样一眼可辨、不占布局 */
+.arm.armed {
+  background-color: var(--t-danger);
+  background-image: linear-gradient(180deg, #e85a5a, var(--t-danger));
+  box-shadow: 0 8rpx 0 var(--t-key-cap), 0 12rpx 24rpx var(--t-shade-out),
+              inset 0 0 0 2rpx rgba(255, 255, 255, 0.9), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+}
+/* 极昼的红要更深一档才压得住浅色底（状态色加深纪律） */
+.page.theme-3 .arm.armed {
+  background-image: linear-gradient(180deg, #d53838, var(--t-danger));
+}
+
+/* ===================== 上锁按钮内的锁图标 =====================
+   为什么用纯 CSS 画、不用图标字体或 SVG：
+   ① 尺寸用 em → 跟随按钮字号等比缩放，竖屏 26rpx 与横屏 min(4.4vh,2.2vw) 不必各写一套；
+   ② 颜色用 currentColor → 自动跟随按钮文字色，将来切浅色主题也不会变脏；
+   ③ 不引入任何第三方资源，不增加小程序包体。
+   锁钩用「上半圆边框」画，开锁=钩子右移并抬起（脱开锁体），上锁=扣回正中。 */
+/* 图标 + 文字的统一行（所有按钮共用，参照上锁按钮）
+   用 inline-flex 而不是 flex：它是行内盒子，万一哪天某个按钮退回「靠 line-height 撑高」的老写法，
+   也不会因为行盒消失而塌矮。当前四类按钮（conn/orient/arm/gyro）都是 flex 容器，
+   .lbl 作为 flex 子项会被 blockify 成 flex，两种写法表现一致。 */
+.lbl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1.2;
+  max-width: 100%;
+  /* min-width:0：本盒是 .arm/.mode 等键的 flex 子项，默认 min-width:auto 按
+     内容 min-content 解析 —— 真机合成加粗/系统字体放大后，超宽文字会把
+     键体撑宽再挤压邻键（解锁键点击时"变长又弹回"的根源）。显式 0 后
+     宽度永远不超过 max-width:100%，溢出由 .lbl-txt 的 ellipsis 负责截断。
+     注意不要在此加 overflow:hidden —— .mode.persona.tick 的文字
+     translateY(-.55em) 起手动画会被裁顶。 */
+  min-width: 0;
+}
+/* 文字不换行：按钮高度是靠 line-height 撑的，一旦折行按钮会变高、顶乱布局。
+   极窄机型上宁可截断也不撑破 —— min-width:0 才允许 flex 子项收缩到内容宽度以下。 */
+.lbl-txt {
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 图标底座：1em 见方、与文字间距 0.34em。
+   颜色不用写 —— 各图标内部一律 currentColor，自动跟随按钮文字色。 */
+.ico {
+  position: relative;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.34em;
+}
+
+.lock {
+  height: 1.14em;
+}
+.lock-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.64em;
+  border-radius: 0.16em;
+  background: currentColor;
+}
+.lock-shackle {
+  position: absolute;
+  left: 19%;
+  bottom: 0.55em;
+  width: 0.62em;
+  height: 0.5em;
+  box-sizing: border-box;
+  border: 0.15em solid currentColor;
+  border-bottom: none;
+  border-radius: 0.31em 0.31em 0 0;
+  transition: left 0.18s ease, bottom 0.18s ease;
+}
+/* 已解锁：锁钩右移并抬到锁体顶面 → 钩子脱开，一眼看出没锁 */
+.lock.open .lock-shackle {
+  left: 38%;
+  bottom: 0.64em;
+}
+
+/* ===================== 其余按钮的小图标 =====================
+   与锁同一套规则：纯 CSS 绘制、em 定尺寸（随按钮字号自动缩放）、currentColor 取色。
+   形状一律表示「当前状态」，不是「点了会怎样」（与锁一致：已解锁时显示开锁）。 */
+
+/* ① 连接 / 断开：两节链环。连接 = 交叠扣住，断开 = 右环移开并歪斜 */
+.ico-link .lk {
+  position: absolute;
+  top: 50%;
+  width: 0.46em;
+  height: 0.32em;
+  margin-top: -0.16em;
+  box-sizing: border-box;
+  border: 0.09em solid currentColor;
+  border-radius: 0.16em;
+  transition: left 0.18s ease, transform 0.18s ease;
+}
+.ico-link .lk-a {
+  left: 0.1em;
+}
+.ico-link .lk-b {
+  left: 0.35em;
+}
+.ico-link.off .lk-b {
+  left: 0.54em;
+  transform: rotate(-16deg);
+}
+
+/* ② 横竖屏：一枚手机。当前竖屏 = 竖放；当前横屏 = 横放（靠 .page.land 自动切换）
+   2026-10-23 图标对齐平衡车预览（design/balance-car-preview.html .or-ico）：
+   ① 底部加 home 横条（::after）—— 手机轮廓的辨识细节，纯轮廓读作"矩形"；
+   ② 转向过渡换过冲曲线 cubic-bezier(.3,1.42,.55,1)（仪表同配方），
+      "啪一下转过弹到位"比匀速 ease 有生命力 */
+.ico-orient .phone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.44em;
+  height: 0.68em;
+  margin: -0.34em 0 0 -0.22em;
+  box-sizing: border-box;
+  border: 0.09em solid currentColor;
+  border-radius: 0.1em;
+  transition: transform 0.3s cubic-bezier(0.3, 1.42, 0.55, 1);
+}
+.ico-orient .phone::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0.06em;
+  width: 0.16em;
+  height: 0.055em;
+  margin-left: -0.08em;
+  background: currentColor;
+  border-radius: 0.03em;
+}
+.page.land .ico-orient .phone {
+  transform: rotate(90deg);
+}
+
+/* ③ 陀螺仪：圆盘 + 水平转轴 + 中心质点 */
+.ico-gyro .gy-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  border: 0.09em solid currentColor;
+  border-radius: 50%;
+}
+.ico-gyro .gy-axis {
+  position: absolute;
+  left: 0.09em;
+  right: 0.09em;
+  top: 50%;
+  height: 0.07em;
+  margin-top: -0.035em;
+  border-radius: 0.035em;
+  background: currentColor;
+}
+.ico-gyro .gy-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.24em;
+  height: 0.24em;
+  margin: -0.12em 0 0 -0.12em;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.gyro {
+  /* 同 .orient：必须 flex 居中，理由见 .orient 上方注释。
+     竖屏高度不变：flex 后内容区被 min-height:88rpx 撑住，与原来 line-height:82rpx+6rpx 边框等值。 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--t-key-face);
+  color: var(--t-text);
+}
+
+/* 陀螺仪开启态：底色变强调蓝（纵向渐变）+ 发光。
+   状态从此由「外观」承担，余光扫一眼就知道开没开（原实现只有文字差异） */
+.gyro.on {
+  background-color: var(--t-accent);
+  background-image: linear-gradient(180deg, var(--t-acc-breathe-hi), var(--t-accent));
+  color: var(--t-on-accent);
+  box-shadow: 0 8rpx 0 var(--t-key-cap), 0 12rpx 24rpx var(--t-shade-out), 0 0 14rpx var(--t-glow-accent),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+.gyro.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 10rpx var(--t-glow-accent),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+
+/* ===================== 自动模式（自动循迹 / 自动避障） =====================
+   位置：陀螺仪圆盘正上方，居中对齐。
+   交互与其他键共用一套（onBtnDown/onBtnUp/onBtnCancel + data-key + .btn-down + .off 灰化），
+   只有语义不同：这两个是**开关**，按一下翻转、键帽持续高亮表示"当前开启"，再按关闭。
+   为什么高度压到 60rpx（比四键的 88rpx 矮一档）：竖屏纵向预算已经很紧
+   （实测 844 高的屏，底部只剩 ~8px），模式行必须自己让出高度；
+   矮一档也顺带把"开关"和"动作"在视觉上分开，不会误当成又一个特技键。 */
+.mode-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  /* 2026-10-18 二次调整：整行上提 24rpx（12px），和圆盘之间留出呼吸位 ——
+     原来 margin-bottom 只有 2rpx，模式行几乎是贴在盘顶上的。
+     做法是「负的上边距 + 等量的下边距」：-24 + 26 = +2，与改动前的 2rpx 相等，
+     所以圆盘、四键的位置一分不动，整个 .gyro-center 的高度也不变（底部那点余量不受影响）。
+     上提 12px 是安全的：上方 .topinfo 的底边在 250，模式行顶会到 240，
+     而它左侧的参数列最后一行（航向）只到 ~218，水平方向也不重叠。 */
+  margin-top: -24rpx;
+  margin-bottom: 26rpx;
+}
+.mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 60rpx;
+  padding: 0 14rpx;
+  margin: 0;
+  /* 键体质感（边框/键面/键帽/内环）已并入上方公共键帽组，这里只保留布局与排版；
+     圆角 20rpx 比四键的 24rpx 小一档：60rpx 的矮键上大圆角会吃掉内容高度 */
+  border-radius: 20rpx;
+  color: var(--t-text);
+  font-size: 24rpx;
+  line-height: 1;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.mode.off { opacity: 0.45; }
+/* 开启态：绿（= 正在生效）。不用蓝/青/橙 —— 那三个已经分别指"上升/下降/特技"。 */
+.mode.on {
+  background-color: var(--t-ok);
+  background-image: linear-gradient(180deg, var(--t-ok-br-hi), var(--t-ok));
+  color: var(--t-on-accent);
+  box-shadow: 0 8rpx 0 var(--t-key-cap), 0 12rpx 24rpx var(--t-shade-out), 0 0 14rpx rgba(18, 131, 60, 0.55),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+.mode.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 10rpx rgba(18, 131, 60, 0.55),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+
+/* —— 两个模式图标（纯 CSS，1×1em，currentColor）——
+   循迹：一条虚线（路线）+ 线上一个实心点（机体正沿着它走）。
+   避障：一个实心点（机体）+ 两道向右张开的弧（探测波），避开前方障碍的语义。 */
+.ico-trace .tr-line {
+  position: absolute;
+  left: 0.06em;
+  top: 0.50em;
+  width: 0.88em;
+  height: 0;
+  border-top: 0.12em dashed currentColor;
+}
+.ico-trace .tr-dot {
+  position: absolute;
+  left: 0.34em;
+  top: 0.50em;
+  width: 0.30em;
+  height: 0.30em;
+  margin: -0.15em 0 0 -0.15em;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ico-avoid .av-dot {
+  position: absolute;
+  left: 0.08em;
+  top: 0.50em;
+  width: 0.22em;
+  height: 0.22em;
+  margin-top: -0.11em;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ico-avoid .av-arc {
+  position: absolute;
+  box-sizing: border-box;
+  border: 0.12em solid currentColor;
+  border-left-color: transparent;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+}
+.ico-avoid .av-arc1 {
+  left: 0.22em;
+  top: 0.35em;
+  width: 0.30em;
+  height: 0.30em;
+}
+.ico-avoid .av-arc2 {
+  left: 0.22em;
+  top: 0.19em;
+  width: 0.62em;
+  height: 0.62em;
+}
+
+/* ===================== 垂直升降（爬升 / 下降，按住动、松手停在当前高度） =====================
+   放在哪里：陀螺仪圆盘两侧的空白处 —— **左下降、右爬升**，左右对称。
+   竖屏圆盘 260rpx 居中，两侧各剩 ≈229rpx；横屏见文件末尾的横屏覆盖段。
+
+   为什么不塞进底部按钮行：.arm 的文字「已解锁（长按上锁）」已经贴到上限，
+   再挤两个按钮只会让三行文字全部截断；而升降属于"手上动作"，本就该靠近摇杆/陀螺仪这一簇。
+   为什么是按住型而不是点击型：点击型必须回答"升多少"，而按住型的停止条件天然就是"手指抬起"。
+
+   为什么用绝对定位而不是插进 flex 流：陀螺仪必须保持水平居中，
+   插进 .gyro-center / .land-gyro 的流里会把它挤偏（那是 10-16 用户确认过的尺寸基准）。
+   槽（.vz-slot）承担定位，按钮自己只管按下位移 —— 两者 transform 互不打架。 */
+.vz-slot {
+  position: absolute;
+  /* 垂直基准的推导（不要随手改数字，改之前按下面三行重算一遍）：
+       槽现在挂在 .gyro-stage 上（层高 = 圆盘 232rpx），所以 50% 就是圆盘圆心 116rpx。
+       间距 40rpx ⇒ 半列高 (88+40+88)/2 = 108 ⇒ 槽心取圆心 +4rpx = 120
+       ⇒ 上沿 12 / 下沿 228（圆盘 0~232，上下各留 12/4rpx，整列仍在盘内）。
+     所以"只把下排往下推"是通过「加大 gap + 同时下移 offset 半个增量」实现的：
+     上排纹丝不动，下排净下移 = gap 的增量。
+     （原来 top: calc(50% - 20rpx) 是 16rpx 间距时的值，槽心 128 ≈ 盘心 130。） */
+  top: calc(50% + 4rpx);
+  transform: translateY(-50%);
+  /* 一个槽里上下两枚：上排升降（按住型）、下排特技（触发型）。
+     宽度**显式写死 132rpx**（= 键帽宽度），不再依赖"按钮撑开再被 max-width 截断"：
+     绝对定位元素是 shrink-to-fit，宽度由内容反推，一旦内容/字体变化就会漂移。
+     当前间距 40rpx ⇒ 整列 88+40+88 = 216rpx，上沿 32rpx、下沿 248rpx；
+     两侧槽都在圆盘左右两侧的空白里（槽右沿 172rpx < 盘左沿 245rpx），
+     所以纵向只受容器高 296rpx 约束 —— 下沿 248 距说明文字（270rpx 起）还有 22rpx 余量。 */
+  width: 132rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40rpx;                  /* 上下两枚之间的缝：16rpx 在真机上看着仍像"贴在一起"，加到 40rpx */
+  /* 兜住"字号被放大"的情况：不许往中间长到压住圆盘（圆盘边缘距内容边缘 ≈229rpx） */
+  max-width: 190rpx;
+}
+/* 镜像对称：两侧用同一个 24rpx 内缩量 → 与圆盘的距离严格相等
+   ⚠️ 槽名按**位置**命名（left/right），不按功能 —— 功能以后可能再换回来，
+      槽的位置不会变；上次因为按功能命名，交换左右键时改了一堆无关的样式。 */
+.vz-slot.right { right: 24rpx; }
+.vz-slot.left { left: 24rpx; }
+
+/* 与其他按钮同一套：flex 居中、3rpx 边框、88rpx 命中区、键帽厚度 4rpx。
+   字号比 arm/gyro 小一档（24rpx 对 26rpx）：两侧空白只有 ≈229rpx，再大就贴到屏幕边。
+
+   ⚠️ 这四个键在 WXML 里是 <view> 而不是 <button>（2026-10-18 改）。
+   实测（微信开发者工具 390×844）：同样写 width:132rpx，<button> 渲染成 184px，
+   连改成 100px 也不变 —— 基础库给 button 的默认样式压过了作者样式，
+   于是按钮变成横条、从两侧压到陀螺仪圆盘上。<view> 没有 UA 样式，宽度即所写即所得；
+   触摸事件（bindtouchstart/touchend/touchcancel）、data-key、按下态 class 全部照旧。
+
+   ⚠️ 尺寸锁定 = 交换前「爬升 / 下降」两键的原值（132×88rpx），四个键一律相同。
+   为什么用 width/height 而不是 min-width/min-height：min-* 允许内容把按钮撑开，
+   「落叶飘」三个字比「爬升」两个字宽 24rpx，同一列里就会出现两种宽度 ——
+   人眼立刻读成"大小不一、没对齐"。写死宽度后四枚键帽严格等大。
+   固定宽度后内边距必须从 18rpx 收到 8rpx：内容区 132−6(边框)=126，
+   126−16=110rpx，刚好容下「图标 24 + 间距 8.2 + 三字 72 = 104.2rpx」，
+   既不截断也不会把文字挤到贴边。 */
+.climb, .descend, .act {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;              /* 不被父级 flex 拉伸/压缩 */
+  width: 132rpx;
+  max-width: 132rpx;           /* 与 width 同值：任何来源的"撑宽"都被这一条截住 */
+  min-width: 0;                /* 取消 flex item 的 min-width:auto（内容不许反向撑开） */
+  height: 88rpx;
+  box-sizing: border-box;
+  padding: 0 8rpx;
+  margin: 0;
+  color: var(--t-text);
+  font-size: 24rpx;
+  /* 下面三条原来是 <button> 的默认样式，改 <view> 后必须显式补上，否则与其他按钮不一致：
+     · overflow:hidden     防文字溢出露到框外
+     · border-radius       已并入公共键帽组（24rpx 实体键圆角）
+     · tap-highlight       去掉移动端点按的灰色高亮
+     键体质感（边框/键面/键帽/内环）同样来自公共组。 */
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  /* 居中交给 flex（align/justify-center），不再靠 82rpx 的行高盒：
+     行高盒按基线排，图标与汉字基线不同，会整体偏下 1~2px（肉眼可见"没居中"）。 */
+  line-height: 1;
+}
+
+/* 按住中：变强调蓝 + 外发光。状态由外观承担 —— 手指压着看不到文字，
+   只能用余光判断"到底有没有在动"，所以必须像陀螺仪开启态那样一眼可辨。
+   下降用「降落青」(info) 而不是同一个蓝：两个键相邻，只靠文字区分会在余光里混淆，
+   而且颜色本身就该表达方向（蓝=上/青=下）。 */
+.climb.on {
+  background-color: var(--t-accent);
+  color: var(--t-on-accent);
+  box-shadow: 0 8rpx 0 var(--t-key-cap), 0 12rpx 24rpx var(--t-shade-out), 0 0 14rpx var(--t-glow-accent),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+.climb.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 10rpx var(--t-glow-accent),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+.descend.on {
+  background-color: var(--t-info);
+  color: var(--t-on-accent);
+  box-shadow: 0 8rpx 0 var(--t-key-cap), 0 12rpx 24rpx var(--t-shade-out), 0 0 14rpx var(--t-glow-info),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+.descend.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 10rpx var(--t-glow-info),
+              inset 0 0 0 2rpx var(--t-key-edge), inset 0 0 0 4rpx rgba(255, 255, 255, 0.06);
+}
+
+/* 未解锁时灰化：不是禁用（按下去会提示"请先解锁"），只是"现在按了没用"，
+   用降低不透明度表达，比藏起来好 —— 藏起来会让布局在解锁瞬间跳一下。 */
+.climb.off, .descend.off, .act.off {
+  opacity: 0.45;
+}
+
+/* ---- 特技动作键（落叶飘 / 空翻）----
+   按住 → 键帽变橙并下沉（位移与阴影同其他键一致），松手才发一次指令。
+   用橙而不是蓝/青：蓝=上升、青=下降已经是固定语义，动作键借用会让余光误判成"在升降"。
+   未解锁时仍是灰键（.off），按下去只弹提示，所以这里不跟着变橙。 */
+/* 四枚键的排版必须完全一致（字号/字距/图标 em 都一样）：
+   曾经给 .act 单独收过字距，结果两两比较时"文字宽度不同"会被读成字号不同，已去掉。 */
+.act.btn-down {
+  background-color: var(--t-warn);
+  color: var(--t-on-accent);
+}
+.act.off.btn-down {
+  background-color: var(--t-key-face);
+  color: var(--t-text);
+}
+
+/* —— 升降图标（纯 CSS、em 定尺寸、currentColor 取色）——
+   两者共用「箭头 + 地面横线」的形状，只把箭头翻转，语义一眼成对：
+   爬升 = 箭头朝上、地面线在底部（从地面升起）；下降 = 箭头朝下、地面线在底部（落向地面）。 */
+.ico-lift .ar-head,
+.ico-land .ar-head {
+  position: absolute;
+  left: 50%;
+  width: 0.42em;
+  height: 0.42em;
+  margin-left: -0.21em;
+  box-sizing: border-box;
+  border-left: 0.11em solid currentColor;
+  border-top: 0.11em solid currentColor;
+}
+.ico-lift .ar-head {
+  top: 0.04em;
+  transform: rotate(45deg);
+}
+/* 下降：菱形旋转 225°（= 45° + 180°）→ 两条边指向下方，形成向下的箭头尖 */
+.ico-land .ar-head {
+  bottom: 0.26em;
+  transform: rotate(225deg);
+}
+.ico-lift .ar-shaft,
+.ico-land .ar-shaft {
+  position: absolute;
+  left: 50%;
+  width: 0.11em;
+  margin-left: -0.055em;
+  border-radius: 0.055em;
+  background: currentColor;
+}
+.ico-lift .ar-shaft {
+  top: 0.44em;
+  bottom: 0.2em;
+}
+.ico-land .ar-shaft {
+  top: 0.08em;
+  bottom: 0.58em;
+}
+.ico-lift .ar-base,
+.ico-land .ar-base {
+  position: absolute;
+  left: 0.14em;
+  right: 0.14em;
+  bottom: 0.02em;
+  height: 0.1em;
+  border-radius: 0.05em;
+  background: currentColor;
+}
+
+/* —— 特技动作图标（落叶飘 / 空翻）——
+   刻意都不画箭头：箭头族已经被升降键占用（上=爬升、下=下降），
+   动作键再用箭头会被读成"又一种垂直移动"。两者都用"非方向"的形状。 */
+
+/* 落叶飘：一片叶子 = 对角圆角矩形（左上/右下圆角）+ 一条叶脉。
+   不做旋转动画 —— 图标是静态指示，动起来会和"按下反馈"抢注意力。 */
+/* 居中 + 体量：0.12 + 0.76/2 = 0.50em，正好落在 1×1em 图标盒的几何中心。
+   ⚠️ 体量统一（2026-10-18）：升降箭头的图形纵向占 0.04~0.98em ≈ 0.94em，
+   叶子原来只有 0.62em —— 并排看会像"叶子的图标小一号"。这里放大到 0.76em，
+   圆环（空翻）0.80em，三者视觉体量拉平；图标盒本身一直是 1em，所以缩放到处都跟着字号走。 */
+.ico-leaf .lf-body {
+  position: absolute;
+  left: 0.12em;
+  top: 0.12em;
+  width: 0.76em;
+  height: 0.76em;
+  box-sizing: border-box;
+  border: 0.1em solid currentColor;
+  border-radius: 0 100% 0 100%;
+}
+/* 叶脉：从叶子左上角沿对角线穿到右下角。transform-origin 取左端，长度才好控。 */
+.ico-leaf .lf-vein {
+  position: absolute;
+  left: 0.22em;
+  top: 0.54em;
+  width: 0.56em;
+  height: 0.10em;
+  margin-top: -0.05em;
+  border-radius: 0.05em;
+  background: currentColor;
+  transform: rotate(45deg);
+  transform-origin: 0 50%;
+}
+
+/* 空翻：带缺口的圆环 + 开口处的箭头尖 = "绕一圈翻过去"。
+   缺口用 border-right-color: transparent 做，比 clip-path 稳妥（老版本 WebView 也认）。 */
+/* 居中 + 体量：0.10 + 0.80/2 = 0.50em（与叶子的 0.76em 视觉体量对齐） */
+.ico-flip .fp-ring {
+  position: absolute;
+  left: 0.10em;
+  top: 0.10em;
+  width: 0.80em;
+  height: 0.80em;
+  box-sizing: border-box;
+  border: 0.1em solid currentColor;
+  border-radius: 50%;
+  border-right-color: transparent;
+  transform: rotate(-38deg);
+}
+.ico-flip .fp-head {
+  position: absolute;
+  right: 0.02em;
+  top: 0.10em;
+  width: 0;
+  height: 0;
+  border-left: 0.17em solid currentColor;
+  border-top: 0.11em solid transparent;
+  border-bottom: 0.11em solid transparent;
+  transform: rotate(12deg);
+}
+
+.telemetry {
+  margin-top: 10rpx;
+  padding: 12rpx 20rpx;
+  /* 胶囊面板（2026-11-15 对标平衡车）：替代旧 8rpx 平角 + surface 底 */
+  background: var(--t-panel);
+  border-radius: 99rpx;
+  box-shadow: inset 0 0 0 2rpx var(--t-key-edge);
+  font-size: 22rpx;
+  color: var(--t-text-dim);
+  min-height: 48rpx;
+}
+
+/* ===================================================================== */
+/* ============= 横版：三列（参数+左摇杆 | 陀螺仪+电机 | 姿态+右摇杆） ============= */
+/* ===================================================================== */
+/* 基准：用户确认的目标截图（大尺寸版）。横屏下 rpx 按屏幕长边换算会偏大导致溢出裁切，
+   故统一用 vh（视口高度百分比）等比排布——既保持目标尺寸比例，又任何机型一屏放完。
+   ⚠️ 尺寸以此为准，不要再往小改。 */
+.page.land {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 1.2vh 2vw;
+  padding-bottom: calc(1vh + constant(safe-area-inset-bottom));
+  padding-bottom: calc(1vh + env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+.page.land .topbar {
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6vh;
+}
+
+/* 横屏顶栏：左侧组（IP / 端口 / 连接）固定宽度，切换按钮靠最右。
+   允许收缩(min-width:0) → 宽度不足时压缩，而不是溢出与「切换竖屏模式」互相遮挡 */
+.page.land .tb-main { flex: 0 1 auto; min-width: 0; align-items: center; }
+.page.land .ip {
+  flex: 0 1 34vw;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 5vh;
+  font-size: min(5vh, 2.4vw);
+  height: 10vh;
+  line-height: 10vh;
+  padding: 0 2vh;
+}
+.page.land .port {
+  flex: 0 1 11vw;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 5vh;
+  font-size: min(5vh, 2.4vw);
+  height: 10vh;
+  line-height: 10vh;
+  padding: 0 2vh;
+}
+.page.land .conn,
+.page.land .orient {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 4.8vh;
+  font-size: min(4.8vh, 2.4vw);
+  line-height: 10vh;
+  height: 10vh;
+  padding: 0 3vh;
+}
+/* 连接按钮不许收缩：.tb-main 是 width:auto 的 flex 容器，横屏下它的宽度会退到
+   "内容宽度"，可收缩的 .conn 于是被压到 39px —— 截图里"连接"只剩一个"连"（实测踩到）。
+   文字完整性优先于腾空间，IP 框自己会收缩。 */
+.page.land .conn {
+  flex: 0 0 auto;
+}
+
+/* 横屏输入框：竖屏那套 rpx 在横屏会按长边换算（2rpx≈2.2px），胶囊内环线精度够用，
+   旧版凹槽阴影覆盖已随质感升级删除（内环线从公共 .ip/.port 规则继承）。 */
+
+.land-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 三列主体 */
+.land-grid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1.5vw;
+}
+
+.land-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.land-col-l { flex: 0 0 26%; }
+.land-col-c { flex: 1 1 auto; align-items: center; }
+.land-col-r { flex: 0 0 26%; }
+
+/* 左列参数：五行堆叠（字号同时受高度与宽度约束，列宽不足也不会横向溢出压到陀螺仪） */
+.land-params {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4vh;
+}
+
+.land-params .pk2 {
+  font-size: 4.2vh;
+  font-size: min(4.2vh, 2.1vw);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+/* 右列机身姿态：仪表在上、标题在下，整体靠右 */
+.land-att {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.land-hud {
+  width: 20vh;
+  height: 20vh;
+  width: min(20vh, 21vw);
+  height: min(20vh, 21vw);
+}
+
+.land-att .att-cap {
+  margin-top: 0.6vh;
+  font-size: 4vh;
+  font-size: min(4vh, 2vw);
+  line-height: 1.15;
+  white-space: nowrap;
+  color: var(--t-text-dim);
+}
+
+/* 横屏摇杆（2026-11-15 用户定：尺寸对齐平衡车/智能车页）：
+   底座 40vh、帽 17vh，与 .page.land .body .stick / .stick-knob 完全同源。
+   原先的 min(·, 23vw/11vw) 上限一并取消 —— 两车页都没有 vw 上限，
+   摇杆贴底居中在本列内不超宽（16:9 最窄横屏 40vh ≈ 150px < 列宽）；
+   保留 min() 反而造成三页在 16:9 屏上大小不一致。 */
+.land-stick {
+  width: 40vh;
+  height: 40vh;
+}
+
+/* 摇杆帽：用 inset+margin:auto 居中（不再依赖负 margin），随基圆尺寸自适应 */
+.land-stick .stick-knob {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  margin: auto;
+  width: 17vh;
+  height: 17vh;
+}
+
+.land-col .stick-label {
+  margin-top: 0.5vh;
+  font-size: 4vh;
+  font-size: min(4vh, 2vw);
+  line-height: 1.15;
+  white-space: nowrap;
+  color: var(--t-text-dim);
+}
+
+/* 中列陀螺仪：在上方剩余空间内垂直居中，为整屏焦点（50vh）。
+   width:100% 是给升降键用的：两个槽要贴的是「中列」的左右边，不是圆盘的边，
+   而 .land-col-c 是 align-items:center，不给宽度这里会收缩成圆盘大小。
+   圆盘本身仍由 align-items:center 居中 → 位置不变。 */
+.land-gyro {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 同上：圆盘 + 两侧四键的定位层（层高 = 圆盘直径），上面多出模式行也不会带偏四键 */
+.land-stage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* 横屏模式行：键高 8vh（四键是 11vh，同竖屏逻辑让出一档），横向图标+文字。
+   ⚠️ 横屏这里**不能**跟着竖屏一起上提：实测 .topbar 底边 84、模式行顶 88，
+   只剩 4px，行底到盘顶 2px —— 上下都顶死了。硬提 6px 会让整行压进
+   .topbar 的「连接」按钮里（行 321–523 与按钮 307–416 在横向重叠），所以保持原值。
+   真要拉开，得先给中列腾空间（圆盘再让 1.5vh 或压薄顶部栏），不是调这一行能解决的。 */
+.page.land .mode-row {
+  gap: 1.2vh;
+  /* 必须显式归零：基础 .mode-row 的 margin-top:-24rpx 会一起继承过来，
+     横屏没覆盖的话整行连同圆盘会一起被拽上去（实测盘顶 122 → 109），压进顶部栏。 */
+  margin-top: 0;
+  margin-bottom: 0.6vh;
+}
+.page.land .mode {
+  height: 8vh;
+  padding: 0 1.2vw;
+  font-size: min(4.2vh, 1.7vw);
+  border-radius: 2.2vh;
+  box-shadow: 0 0.8vh 0 var(--t-key-cap), 0 1.2vh 2.4vh var(--t-shade-out),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .mode.btn-down {
+  transform: translateY(0.8vh);
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0.6vh 1.2vh var(--t-shade-out),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .mode.on {
+  box-shadow: 0 0.8vh 0 var(--t-key-cap), 0 1.2vh 2.4vh var(--t-shade-out), 0 0 1.4vh rgba(18, 131, 60, 0.55),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+
+/* ⚠️ 2026-10-18：50vh → 43vh。陀螺仪正上方要放"自动循迹/避障"一行（8vh + 间距），
+   而横屏中列只剩 57.7vh 可用（实测：中列 225px / 视口 390px，圆盘 195 已占满），
+   这 7vh 只能从圆盘里让。四键的相对位置靠 .land-stage 保持不动（见下面的 top）。 */
+.land-gyro-cv {
+  width: min(43vh, 44vw);
+  height: min(43vh, 44vw);
+}
+
+.land-gyro .gyro-cap {
+  margin-top: 0.6vh;
+  font-size: 4vh;
+  font-size: min(4vh, 1.9vw);
+  line-height: 1.15;
+  white-space: nowrap;
+  color: var(--t-text-dim);
+}
+
+/* 中列底部：电机转速 + 解锁 / 开陀螺，横向排布并居中 */
+.land-bottom {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2.4vw;
+  width: 100%;
+}
+
+.land-motors {
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 0.9vw;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.land-motors .motor {
+  flex: 0 0 auto;
+}
+
+/* 柱宽按视口宽度缩放(vw) → 与右侧按钮同行也永不超宽、不压住两侧摇杆 */
+.land-motors .m-bar {
+  height: 9.5vh;
+  width: 2vw;
+  /* 横屏柱子只有 2vw 宽，竖屏那套 rpx 阴影换算过来会深得像黑洞，按 vh 重写 */
+  box-shadow: inset 0 0.4vh 1vh var(--t-shade-in), inset 0 -0.15vh 0 var(--t-edge-light);
+}
+
+.land-motors .m-label {
+  font-size: 3.4vh;
+  font-size: min(3.4vh, 1.7vw);
+  line-height: 1.15;
+  margin-top: 0.3vh;
+}
+
+.land-controls {
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.6vw;
+}
+
+.land-controls .arm,
+.land-controls .gyro {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 4.4vh;
+  font-size: min(4.4vh, 2.2vw);
+  line-height: 11vh;
+  height: 11vh;
+  padding: 0 2.4vw;
+}
+
+/* 横屏键帽：按 11vh 的按钮同比缩放（2026-11-15 实体键配方：侧壁 0.8vh、圆角 3vh、内环 0.5vh）；
+   位移量仍等于厚度(0.8vh)。rpx 的圆角/内环在横屏按长边换算会过大，所以这里整组重写。
+   ⚠️ .mode 不在本组：它的键高只有 8vh，圆角/阴影用上方自己的块（2.2vh 小一档） */
+.page.land .conn,
+.page.land .orient,
+.page.land .arm,
+.page.land .gyro,
+.page.land .climb,
+.page.land .descend,
+.page.land .act,
+.page.land .takeoff {
+  border-radius: 3vh;
+  box-shadow: 0 0.8vh 0 var(--t-key-cap), 0 1.2vh 2.4vh var(--t-shade-out),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+/* 横屏胶囊 utility 键（切换横竖屏）圆角 */
+.page.land .orient { border-radius: 5vh; }
+/* 起飞键是圆键（border-radius:50%）：横屏键帽组的 3vh 只给方键 ——
+   不恢复 50% 会被（0,2,0 特异性）压成圆角方块，与圆形呼吸灯/光晕环
+   （.to-flow / .to-halo 全是 50%）轮廓错位（2026-11-15 用户实测） */
+.page.land .takeoff { border-radius: 50%; }
+/* ⚠️ 必须重置竖屏的 min-height（arm/gyro 的 88rpx、orient 的 44rpx、climb/descend 的 88rpx）——
+   横屏下 rpx 按屏幕长边换算会放大（88rpx→≈99px、44rpx→≈49px），
+   而横屏按钮高度是 11vh/10vh(≈39~43px)，不重置会把按钮撑高、破坏已锁定的三列布局。 */
+.page.land .arm,
+.page.land .gyro,
+.page.land .orient,
+.page.land .climb,
+.page.land .descend,
+.page.land .act {
+  min-height: 0;
+}
+.page.land .conn.btn-down,
+.page.land .orient.btn-down,
+.page.land .arm.btn-down,
+.page.land .gyro.btn-down,
+.page.land .climb.btn-down,
+.page.land .descend.btn-down,
+.page.land .act.btn-down,
+.page.land .takeoff.btn-down {
+  transform: translateY(0.8vh);
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0.6vh 1.2vh var(--t-shade-out),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .gyro.on {
+  box-shadow: 0 0.8vh 0 var(--t-key-cap), 0 1.2vh 2.4vh var(--t-shade-out), 0 0 1.4vh var(--t-glow-accent),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .gyro.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 1vh var(--t-glow-accent),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+
+/* ============ 横屏升降键：贴在陀螺仪圆盘左右两侧的空白里 ============
+   位置要求（2026-10-17 用户指定）：左下降、右爬升，居于陀螺仪两侧，
+   **不许动其他按键与仪表的位置** —— 所以它们绝对不能进任何列的正常流：
+   插进左列会让 .land-col 的 space-between 重新分配，左摇杆就被挤走了（踩过）。
+
+   做法：.land-gyro 撑满中列（width:100%），两个槽各自贴列边（left/right:0）。
+   按钮宽度 = (列宽 − 圆盘直径) / 2 − 一点余量：
+     · 圆盘直径 = min(43vh, 44vw)，与 .land-gyro-cv 完全同源，改一处即可；
+     · 减 0.8vw 是为了在圆盘最宽处（竖直中线）留出缝隙，不贴死盘沿。
+   实测余量：812×375 → 按钮 ≈73px；667×375 → ≈44px；568×320 → ≈37px。
+   ⇒ 最窄横屏装不下"图标+文字"横排，所以横屏改成**竖排**（图标在上、文字在下），
+     宽度只需两个字 + 内边距，任何横屏都放得下，而键帽/按下位移与其他按钮完全一致。 */
+.page.land .vz-slot {
+  /* 同竖屏：减去横屏说明文字的半个高度（0.6vh 边距 + 1.15 行高 ≈ 5vh 的一半）——
+     槽现在挂在 .land-stage 上（层高 = 圆盘直径），50% 就是圆盘圆心，
+     所以偏移直接写成"槽心比圆心低多少"：
+       间距 4.5vh ⇒ 半列高 (11+4.5+11)/2 = 13.25vh ⇒ 槽心 = 圆心 + (13.25 − 11.5) = +1.75vh。
+     于是上排顶边恒在「圆心 − 11.5vh」，与圆盘缩放/模式行都无关。 */
+  top: calc(50% + 1.75vh);
+  /* 竖屏的间距用 rpx，横屏换成 vh 才与 11vh 的键高成比例（rpx 在横屏按长边换算会放大）。
+     整列高 = 11vh*2 + 4.5vh = 26.5vh；下沿在盘心下方 15vh，
+     而说明文字在盘心下方 ≈25vh ⇒ 不重叠（两侧槽在盘外空白里，纵向只需防出界）。 */
+  gap: 4.5vh;
+  /* 宽度算在「槽」上而不是按钮上：槽是绝对定位、百分比以中列为基准（确定值）；
+     若写在按钮上，按钮的百分比要回推槽的收缩宽度 → 循环依赖，实测被算成 8px。 */
+  width: calc((100% - min(43vh, 44vw)) / 2 - 0.8vw);
+  max-width: none;
+}
+.page.land .vz-slot.right { right: 0; }
+.page.land .vz-slot.left { left: 0; }
+
+.page.land .climb,
+.page.land .descend,
+.page.land .act {
+  flex-direction: column;      /* 图标在上、文字在下（横屏两侧宽度不够横排） */
+  flex: 0 0 auto;              /* 高度固定 11vh，不许被 .vz-slot 拉伸 */
+  min-width: 0;
+  width: 100%;                 /* 由槽的宽度决定（见上面的 calc） */
+  max-width: none;             /* 取消竖屏的 132rpx 上限：横屏宽度归槽的 calc 管 */
+  height: 11vh;
+  padding: 0 0.4vw;
+  /* 四枚键一个字号，图标是 1em 会跟着一起缩放 —— 这就是"图标与文字大小统一"的实现方式。
+     取值必须让最长的「落叶飘」在最窄的横屏槽里也放得下：
+       568×320 时槽 ≈37px，3 字 × 9.66(1.7vw) + 左右内边距 4.5 + 边框 1.9 ≈ 35.4px ✓
+     所以横向那一路用 1.7vw（原来升降键是 2vw、动作键另设 1.7vw，两者并排就显得一大一小）。 */
+  font-size: min(4.2vh, 1.7vw);
+  line-height: 1;
+  border-width: 0.3vh;
+}
+/* 竖排后 .lbl 也要竖起来；图标的右间距换成下间距（.ico 默认 margin-right）。
+   justify-content: center 让「图标 + 文字」这一组在按钮里水平居中，
+   按钮自身的 align-items: center 负责垂直居中 —— 两个方向都不依赖行高。 */
+.page.land .vz-slot .lbl {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  max-height: 100%;
+}
+/* 竖排后图标的下间距要收紧：11vh 的按钮里要塞下「图标 + 文字」两行，
+   原来横排的 0.34em 右边距换算成上下间距就会顶到边框。 */
+.page.land .vz-slot .ico {
+  margin: 0 0 0.16em;
+}
+/* 四枚键字号已在上面的 .page.land .climb/.descend/.act 里统一为 min(4.2vh, 1.7vw)，
+   原来这里给 .act 单独降过一档 → 两两并排时明显一大一小，已删除。 */
+
+.page.land .climb.on {
+  box-shadow: 0 0.8vh 0 var(--t-key-cap), 0 1.2vh 2.4vh var(--t-shade-out), 0 0 1.4vh var(--t-glow-accent),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .climb.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 1vh var(--t-glow-accent),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .descend.on {
+  box-shadow: 0 0.8vh 0 var(--t-key-cap), 0 1.2vh 2.4vh var(--t-shade-out), 0 0 1.4vh var(--t-glow-info),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+.page.land .descend.on.btn-down {
+  box-shadow: 0 0 0 var(--t-key-cap), 0 0 1vh var(--t-glow-info),
+              inset 0 0 0 0.5vh var(--t-key-edge), inset 0 0 0 1vh rgba(255, 255, 255, 0.06);
+}
+
+/* 横屏摇杆：阴影随 40vh 的尺寸同比缩放（竖屏值 × 基圆尺寸比 ≈1.3，px→vh）。
+   直接用竖屏那套 rpx，在横屏（rpx 按长边换算）会显得过细、凹陷感消失。 */
+.page.land .stick-base {
+  box-shadow:
+    inset 0 0 0 0.4vh var(--t-edge-light),
+    inset 0 2vh 6vh rgba(0, 0, 0, 0.4);
+}
+.page.land .stick-base.pressed {
+  box-shadow:
+    inset 0 0 0 0.4vh var(--t-edge-light),
+    inset 0 2.6vh 8vh rgba(0, 0, 0, 0.4),
+    inset 0 0 0 0.5vw var(--t-grip-on);
+}
+.page.land .knob-cap {
+  box-shadow:
+    0 1.6vh 0 #05090f,
+    0 2.4vh 5vh rgba(0, 0, 0, 0.5),
+    inset 0 0 0 0.4vh rgba(255, 255, 255, 0.16),
+    inset 0 1.2vh 2.4vh rgba(255, 255, 255, 0.12);
+}
+.page.land .stick-base.pressed .knob-cap {
+  box-shadow:
+    0 0.6vh 0 #05090f,
+    0 1vh 2vh rgba(0, 0, 0, 0.5),
+    inset 0 0 0 0.4vh rgba(255, 255, 255, 0.22),
+    inset 0 1.2vh 2.4vh rgba(255, 255, 255, 0.18);
+}
+.page.theme-3.land .knob-cap {
+  box-shadow:
+    0 1.6vh 0 #0b1526,
+    0 2.4vh 5vh rgba(50, 75, 120, 0.30),
+    inset 0 0 0 0.4vh rgba(255, 255, 255, 0.16),
+    inset 0 1.2vh 2.4vh rgba(255, 255, 255, 0.12);
+}
+.page.theme-3.land .stick-base.pressed .knob-cap {
+  box-shadow:
+    0 0.6vh 0 #0b1526,
+    0 1vh 2vh rgba(50, 75, 120, 0.30),
+    inset 0 0 0 0.4vh rgba(255, 255, 255, 0.22),
+    inset 0 1.2vh 2.4vh rgba(255, 255, 255, 0.18);
+}
+
+/* 横屏隐藏遥测日志，节省纵向空间（操控时不需要） */
+.land-telemetry {
+  display: none;
+}
+/* ===========================================================================
+   页面入场（2026-10-23：原「四点起飞」启动层已移除，启动动画统一由
+   模式选择页 splash 承担）。到达长入：与平衡车页同配方 ——
+   scale .96→1 过冲曲线，底层不淡入（避免整屏"灰一下"）。
+   =========================================================================== */
+.page-enter { animation: lyr-enter .42s cubic-bezier(.3, 1.42, .55, 1) both; }
+@keyframes lyr-enter {
+  from { transform: scale(0.96); }
+  to   { transform: scale(1); }
+}
+
+/* ===========================================================================
+   动效层（落地自 design/visual-spec.html 05 节提案 · 2026-10-20）
+   ---------------------------------------------------------------------
+   三条纪律（违反任何一条，几个动效叠在同一枚键上就会互相打架）：
+     ① 键体的 transform / box-shadow 只归"按下"（.btn-down）用。
+        光环、扫光、呼吸一律放伪元素，或用 outline —— outline 不参与布局、
+        也不占 box-shadow，按住时的塌陷阴影永远是最后说了算的那个。
+     ② 动效伪元素的宿主必须 position:relative。少了这行，inset:0 会定位到
+        最近的定位祖先（.vz-slot 是 absolute），光带会铺满整个槽而不是键。
+     ③ 周期位移取条纹/波长周期的整数倍，否则每循环一圈会跳一下。
+   时长三档：0.06s 按下（.btn-down，已有）· 0.6s 手指压着/一次性 · 2s 系统在跑。
+   方向两种：向外扩 = 一次性（动作发出去了）· 向内收 = 循环（人一直压着）。
+   单位口径：键面内的 em 跟随键字号（24rpx），与预览页 1em≈12.5px 等价；
+   预览页的 px 一律 ×2 写成 rpx。
+   =========================================================================== */
+
+/* ---------- 0. 两个通用的一次性动作（挂在 .arm / .act 上：解锁=外扩 / 上锁=内收） ----------
+   同 .fx-ring：环本体是真实子节点，键体自身不再跑 outline 动画（真机不渲染）。
+   opacity:0 写死在状态规则里——动画播完（class 还没摘）时环保持隐形，不会闪回。
+   .arm 必须补 position:relative（.act.busy / .mode.on / .gyro.on 自带）：
+   环是 absolute，宿主没定位就会锚到最近的定位祖先，环会飞到别的键上。
+   overflow:visible 同理 —— <button> 基础库样式带裁剪，环放大到键外会被切掉。 */
+.arm.burst, .arm.suck{position:relative; overflow:visible}
+.arm.burst .fx-ring,
+.act.busy .fx-ring{
+  display:block; opacity:0;
+  border:4rpx solid var(--bc, var(--t-acc-ring));
+  animation:pk-fx-out .6s cubic-bezier(.2,.7,.3,1);
+}
+.arm.suck .fx-ring{
+  display:block; opacity:0;
+  border:4rpx solid var(--bc, var(--t-acc-ring));
+  animation:pk-fx-in .6s cubic-bezier(.2,.7,.3,1);
+}
+@keyframes pk-fx-out{
+  0%  {transform:scale(1);    opacity:.9}
+  100%{transform:scale(1.22); opacity:0}
+}
+@keyframes pk-fx-in{
+  0%  {transform:scale(1.22); opacity:.8}
+  72% {transform:scale(1.02); opacity:.45}
+  100%{transform:scale(1);    opacity:0}
+}
+
+/* ---------- ① 特技键 busy：一次性 600ms（点芯 → 双层冲击波 → 三层光带 → 余辉） ----------
+   只做"键面变蓝 + 一道光扫过"读起来像 checkbox 被勾上，没有"动作发出去了"的劲。
+   高级感来自"层次 + 时序"：① 键体 outline 外扩 → ② ::before 中心点亮 + 双层冲击波
+   → ③ ::after 三层光带（宽 2.4/1.1/4.6em、速度与 alpha 全不同）→ ④ 图标随动。
+   两条实现约束：busy 期间放开 overflow（冲击波要扩到键框外）；
+   光带用 inset:0 + background-position 位移 —— 背景永不溢出盒子，天然干净。 */
+.act.busy{
+  position:relative;
+  overflow:visible;
+  background-color:var(--t-acc-busy-bg);
+  background-image:radial-gradient(118% 118% at 50% 26%,rgba(255,255,255,.13),rgba(8,28,66,.34) 100%);
+  border-color:var(--t-acc-btn);
+  color:#fff;
+  z-index:3;          /* 冲击波压住旁边的升降键，不能钻到它下面 */
+  /* 外扩环走 .fx-ring 真实节点（见动效层 0 节，真机不渲染 outline 动画）；
+     pk-edge 只碰 border-color —— 边框先亮到近白再退回，像一瞬间过了电流 */
+  animation:pk-edge .6s ease-out;
+}
+@keyframes pk-edge{
+  0%  {border-color:var(--t-acc-edge-hi)}
+  26% {border-color:var(--t-acc-edge-hi)}
+  100%{border-color:var(--t-acc-btn)}
+}
+.act.busy::before{
+  content:""; position:absolute; left:0; top:0; right:0; bottom:0;
+  border-radius:inherit; pointer-events:none;
+  /* 底色不从整键硬切，而是从中心一个亮核散开 —— 同时承担"点亮"和"冲击波" */
+  background:radial-gradient(130% 140% at 50% 46%,var(--t-acc-sweep),var(--t-acc-sweep-0) 68%);
+  animation:pk-shock .6s cubic-bezier(.15,.72,.25,1);
+}
+@keyframes pk-shock{
+  /* 两组 box-shadow 半径不同步推进：内环先散、外环后散，读作水面上两圈涟漪 */
+  0%  {box-shadow:0 0 0 0 var(--t-acc-rip-1),
+                 0 0 0 0 var(--t-acc-rip-2);
+       opacity:.5}
+  20% {box-shadow:0 0 0 3rpx var(--t-acc-rip-1),
+                 0 0 0 4rpx var(--t-acc-rip-2);
+       opacity:1}
+  62% {box-shadow:0 0 0 12rpx var(--t-acc-rip-3),
+                 0 0 0 22rpx var(--t-acc-rip-3)}
+  100%{box-shadow:0 0 0 18rpx var(--t-acc-rip-0),
+                 0 0 0 40rpx var(--t-acc-rip-0);
+       opacity:.18}
+}
+/* 三层光带的"错位"比"旋转"更值钱：三束光的起始 x / 粗细 / 速度都不同，
+   穿过键面时一束领着一束。不要用 transform:rotate 斜置 —— ::after 是 inset:0 的盒子，
+   旋转后没法用 clip 收回。三个椭圆光斑（不是渐变条：条在非行进轴是硬边，放大就是矩形）。
+   行程必须用 em 自己算够：百分比位移对大图无效（(container-image)×pct，
+   4.6em 的散光层放进 5.5em 的键只剩 11px 可动，永远卡在键里出不去）。 */
+.act.busy::after{
+  content:""; position:absolute; left:0; top:0; right:0; bottom:0;
+  border-radius:inherit; pointer-events:none;
+  background-repeat:no-repeat;
+  background-image:
+    radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.72),rgba(255,255,255,0) 72%),
+    radial-gradient(50% 50% at 50% 50%,var(--t-acc-sweep-2),var(--t-acc-sweep-2-0) 72%),
+    radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.24),rgba(255,255,255,0) 74%);
+  background-size:2.4em 62%, 1.1em 40%, 4.6em 104%;
+  background-position:-6em 14%, -7em 66%, -5em 0;
+  animation:pk-sweep3x .6s cubic-bezier(.35,.05,.25,1);
+}
+@keyframes pk-sweep3x{
+  0%  {background-position:-6em 14%, -7em 62%, -5em 0}
+  100%{background-position:9em 14%,  10em 62%, 8em 0}
+}
+/* 落叶飘（.act-leaf.busy，类名由 wxml 显式给出——WXSS 靠不住 :has）：
+   整套转成竖向，三束光水平位置彼此错开 —— 像三片东西先后飘过 */
+.act-leaf.busy::after{
+  background-image:
+    radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.74),rgba(255,255,255,0) 72%),
+    radial-gradient(50% 50% at 50% 50%,var(--t-acc-sweep-2),var(--t-acc-sweep-2-0) 72%),
+    radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.24),rgba(255,255,255,0) 74%);
+  background-size:52% 1.8em, 32% 1em, 92% 3.4em;
+  background-position:38% -2.4em, 8% -1.7em, 46% -3.7em;
+  animation-name:pk-sweep3y;
+}
+@keyframes pk-sweep3y{
+  0%  {background-position:38% -2.4em, 8% -1.7em, 0 -3.7em}
+  100%{background-position:38% 5.2em,  8% 6.2em,  46% 4.4em}
+}
+
+/* ---------- ② 升降键：按住 0.6s 循环（键面流动 + 边框亮起 + 边沿内收 + 扫光） ----------
+   内部颜色必须和背景拉开：页面底近黑、键面 --t-bg-surface 在余光里几乎看不出
+   "这一枚正在生效"，所以按住时直接换深蓝/深青底 + 流动条纹，一眼可辨。 */
+.climb.on,.descend.on{position:relative}
+.climb.on{
+  background-color:var(--t-acc-hold-bg);
+  background-image:repeating-linear-gradient(0deg,var(--t-acc-hold-stripe) 0 .04em,transparent .04em .3em);
+  border-color:var(--t-acc-hold);
+  animation:pk-flow-up .6s linear infinite;
+}
+.descend.on{
+  background-color:var(--t-info-hold-bg);
+  background-image:repeating-linear-gradient(0deg,var(--t-info-hold-stripe) 0 .04em,transparent .04em .3em);
+  border-color:var(--t-info-hold);
+  animation-name:pk-flow-down;
+}
+/* 边框特效挂在同一条 keyframes 里带出去（再加第二层描边会读成"双层边框"）。
+   位移取条纹周期 .3em 的两倍（.6em），首尾接得上。 */
+@keyframes pk-flow-up{
+  0%  {background-position:0 0;     border-color:var(--t-acc-hold)}
+  50% {background-position:0 -.3em; border-color:var(--t-acc-hold-hi)}
+  100%{background-position:0 -.6em; border-color:var(--t-acc-hold)}
+}
+@keyframes pk-flow-down{
+  0%  {background-position:0 0;     border-color:var(--t-info-hold)}
+  50% {background-position:0 .3em;  border-color:var(--t-info-hold-hi)}
+  100%{background-position:0 .6em;  border-color:var(--t-info-hold)}
+}
+/* 边沿内收：一条贴内沿的细亮线 + 一层内渗光，一起从"散"收到"紧"。
+   细线(.04em)比边框(3rpx)更窄，读作"边框被点亮"。放在 ::before 上，
+   永远不抢 .btn-down 的 box-shadow。 */
+.climb.on::before,.descend.on::before{
+  content:""; position:absolute; left:0; top:0; right:0; bottom:0;
+  border-radius:inherit; pointer-events:none;
+  animation:pk-suck-loop .6s ease-in-out infinite;
+}
+.descend.on::before{animation-name:pk-suck-loop-info}
+@keyframes pk-suck-loop{
+  0%,100%{box-shadow:inset 0 0 0 .04em var(--t-acc-suck-a), inset 0 0 1.3em var(--t-acc-suck-b)}
+  45%    {box-shadow:inset 0 0 0 .06em var(--t-acc-suck-hi), inset 0 0 .46em var(--t-acc-suck-md)}
+}
+@keyframes pk-suck-loop-info{
+  0%,100%{box-shadow:inset 0 0 0 .04em var(--t-info-suck-a), inset 0 0 1.3em var(--t-info-suck-b)}
+  45%    {box-shadow:inset 0 0 0 .06em var(--t-info-suck-hi), inset 0 0 .46em var(--t-info-suck-md)}
+}
+/* 扫光：比条纹慢一档（1.1s），两个节奏不打架；方向跟着动作走。
+   .climb/.descend 自带 overflow:hidden，越界部分被裁掉。 */
+.climb.on::after,.descend.on::after{
+  content:""; position:absolute; left:-24%; width:148%; top:0; height:70%;
+  background:linear-gradient(180deg,transparent 16%,rgba(255,255,255,.24) 50%,transparent 84%);
+  transform:translateY(120%) rotate(5deg); pointer-events:none;
+  animation:pk-drift-up 1.1s linear infinite;
+}
+.descend.on::after{animation-name:pk-drift-down}
+@keyframes pk-drift-up{
+  0%{transform:translateY(120%) rotate(5deg); opacity:0}
+  18%{opacity:1}
+  100%{transform:translateY(-120%) rotate(5deg); opacity:0}
+}
+@keyframes pk-drift-down{
+  0%{transform:translateY(-120%) rotate(5deg); opacity:0}
+  18%{opacity:1}
+  100%{transform:translateY(120%) rotate(5deg); opacity:0}
+}
+/* 图标随动：整枚图标朝动作方向轻顶，箭头再多顶一下（周期与键面同一档 0.6s） */
+.climb.on .ico-lift{animation:pk-ico-up .6s ease-in-out infinite}
+.descend.on .ico-land{animation:pk-ico-dn .6s ease-in-out infinite}
+.climb.on .ico-lift .ar-head{animation:pk-ar-up .6s ease-in-out infinite}
+.descend.on .ico-land .ar-head{animation:pk-ar-dn .6s ease-in-out infinite}
+@keyframes pk-ico-up{0%,100%{transform:translateY(0)} 42%{transform:translateY(-.09em)}}
+@keyframes pk-ico-dn{0%,100%{transform:translateY(0)} 42%{transform:translateY(.09em)}}
+@keyframes pk-ar-up{0%,100%{transform:translateY(.04em) rotate(45deg)}  42%{transform:translateY(-.05em) rotate(45deg)}}
+@keyframes pk-ar-dn{0%,100%{transform:translateY(-.04em) rotate(225deg)} 42%{transform:translateY(.05em) rotate(225deg)}}
+
+/* ---------- ③ 模式键：生效后 2s 三层呼吸（系统在跑） ----------
+   外圈描边要扩到键外 → overflow 放开（文本仍然不会溢出）。 */
+.mode.on{
+  position:relative;
+  overflow:visible;
+  animation:pk-breathe 2s ease-in-out infinite;
+}
+.mode.on::before{
+  content:""; position:absolute; left:0; top:0; right:0; bottom:0;
+  border-radius:inherit; pointer-events:none;
+  animation:pk-inner 2s ease-in-out infinite;
+}
+/* 外扩环 = 真实子节点（.fx-ring），不再是伪元素：
+   2026-10-21 真机实测两轮——凡押在 ::after / outline 上的动效（解锁外扩、模式键外扩环）
+   在用户手机上全部不可见，而真实节点的动效（标尺小球/箭头/充能柱）全部正常。
+   结论：真机 webview 对「伪元素动画 / outline 动画」的渲染不可依赖，
+   凡要肉眼可见的环一律用节点 + transform scale（节点不碰键体 transform/box-shadow，不违纪律①）。 */
+.fx-ring{
+  display:none; position:absolute; pointer-events:none; z-index:1;
+  left:-4rpx; top:-4rpx; right:-4rpx; bottom:-4rpx;
+  border-radius:inherit;
+}
+.mode.on .fx-ring{
+  display:block; border:5rpx solid var(--t-ok-fx);
+  animation:pk-ring 2s ease-out infinite;
+}
+@keyframes pk-breathe{
+  0%,100%{background-color:var(--t-ok-br-lo); border-color:var(--t-ok-br-lo)}
+  50%    {background-color:var(--t-ok-br-hi); border-color:var(--t-ok-br-edge)}
+}
+@keyframes pk-inner{
+  0%,100%{box-shadow:inset 0 0 .12em var(--t-ok-inner-lo)}
+  50%    {box-shadow:inset 0 0 .42em var(--t-ok-inner-hi)}
+}
+/* 2026-10-21 用户定稿：开启态的外圈要「放大并逐渐消失」的脉冲，不是 1.26 倍的含蓄光晕。
+   节奏仍是 2s 档（系统在跑），但脉冲只占前 55%，后 45% 完全静默 —— 读作周期性地向外发射，
+   而不是持续呼吸。 */
+@keyframes pk-ring{
+  0%   {transform:scale(1);    opacity:.9}
+  55%  {transform:scale(1.45); opacity:0}
+  100% {transform:scale(1.45); opacity:0}
+}
+
+/* ---------- ④ 陀螺仪键：开启后 2s 呼吸（另一个"系统在跑"） ----------
+   .gyro 是 <button>：基础库给 button::after 预置了 200% 尺寸 + scale(.5)，
+   必须显式改回 auto/none，否则外圈环会被预置样式顶坏。 */
+.gyro.on{
+  position:relative;
+  overflow:visible;                /* <button> 基础库默认裁剪，外扩环会被裁掉看不见 */
+  animation:pk-breathe-blue 2s ease-in-out infinite;
+}
+.gyro.on::before{
+  content:""; position:absolute; left:0; top:0; right:0; bottom:0;
+  border-radius:inherit; pointer-events:none;
+  animation:pk-inner-blue 2s ease-in-out infinite;
+}
+.gyro.on .fx-ring{
+  display:block; border:5rpx solid var(--t-acc-fx);
+  animation:pk-ring 2s ease-out infinite;
+}
+@keyframes pk-breathe-blue{
+  0%,100%{background-color:var(--t-acc-breathe-lo)}
+  50%    {background-color:var(--t-acc-breathe-hi)}
+}
+@keyframes pk-inner-blue{
+  0%,100%{box-shadow:inset 0 0 .12em var(--t-acc-inner-lo)}
+  50%    {box-shadow:inset 0 0 .42em var(--t-acc-inner-hi)}
+}
+
+/* ---------- ⑤ 连接键：连接中 0.9s 扫描（button::after 预置样式同上要盖掉） ---------- */
+.conn.connecting{
+  position:relative;
+  animation:pk-conn .9s ease-in-out infinite;
+}
+.conn.connecting::after{
+  content:""; position:absolute; top:0; bottom:0; left:0; width:36%; height:auto;
+  border-radius:0; transform:translateX(-120%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
+  pointer-events:none;
+  animation:pk-scan .9s linear infinite;
+}
+@keyframes pk-scan{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+@keyframes pk-conn{
+  0%,100%{background-color:var(--t-accent)}
+  50%    {background-color:var(--t-acc-conn-hi)}
+}
+
+/* ---------- ⑦ 摇杆按住：跟随环（不做呼吸 —— 连续输入配连续反馈，
+   呼吸会让人以为"它在自己动"）。推得越远环收得越紧（scale 1.14→0.76），
+   位移/缩放由 JS 在 _flushKnob 里与键帽同一帧写进 style，CSS 只做插值。 */
+.stick-ring{
+  position:absolute; left:50%; top:50%;
+  width:132rpx; height:132rpx;
+  margin:-66rpx 0 0 -66rpx;
+  box-sizing:border-box; border-radius:50%; pointer-events:none;
+  border:3rpx solid var(--t-acc-stick-ring);
+  box-shadow:0 0 14rpx var(--t-acc-inner),
+             inset 0 0 10rpx var(--t-acc-inner-2);
+  opacity:0; transform:translate3d(0,0,0) scale(1.14);
+  transition:transform .12s linear, opacity .14s ease;
+}
+.stick-base.pressed .stick-ring{opacity:1}
+
+/* ---------- ⑧ 电机柱：液态（三层正弦波 + 液位直写 + 体积光） ----------
+   波长 22/34/56rpx —— 柱宽 89px 上约 3 个主波；波长再短就读成齿轮（碎的分界线）。
+   每层位移都取自身波长的整数倍（1/2/3 个周期）→ 循环点无缝。
+   液面位置由 wxml 按 item.pct 直接算 bottom（不新增 setData），只留 opacity 过渡。
+   颜色按小程序「转速=钢灰数据」的决定做了适配：波是钢灰系的高光/泡沫，
+   不沿用预览页的蓝色液体（蓝色专指"可操作"）。 */
+.m-bar{
+  position:relative;
+  /* bottom 每 16ms 由模板重算，contain 把重排关在这 89×100rpx 的盒子里 */
+  contain:layout paint;
+}
+.m-wave{
+  position:absolute; left:0; right:0;
+  height:13rpx;
+  pointer-events:none;
+  background-repeat:repeat-x;
+  background-position:0 bottom, 0 bottom, 0 bottom;
+  background-size:22rpx 7rpx, 34rpx 10rpx, 56rpx 13rpx;
+  background-image:
+    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMicgaGVpZ2h0PSc3JyB2aWV3Qm94PScwIDAgMjIgNyc+PHBhdGggZD0nTTAgNFE1LjUgMS4yIDExIDRUMjIgNEwyMiA3TDAgN1onIGZpbGw9JyNkZmU3ZjInIGZpbGwtb3BhY2l0eT0nLjE4Jy8+PC9zdmc+"),
+    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSczNCcgaGVpZ2h0PScxMCcgdmlld0JveD0nMCAwIDM0IDEwJz48cGF0aCBkPSdNMCA1LjVROC41IDEgMTcgNS41VDM0IDUuNUwzNCAxMEwwIDEwWicgZmlsbD0nI2FlYmZkNicgZmlsbC1vcGFjaXR5PScuMzgnLz48L3N2Zz4="),
+    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc1NicgaGVpZ2h0PScxMycgdmlld0JveD0nMCAwIDU2IDEzJz48cGF0aCBkPSdNMCA3UTE0IDAuNiAyOCA3VDU2IDdMNTYgMTNMMCAxM1onIGZpbGw9JyM4NDk0YWMnIHN0cm9rZT0nI2M5ZDZlYScgc3Ryb2tlLXdpZHRoPScwLjgnLz48L3N2Zz4=");
+  opacity:0;
+  transition:opacity .3s ease;
+}
+/* 只有真的在转（已解锁）液面才动 —— 停了就彻底静，"系统在跑"才有意义 */
+.motors.on .m-wave{
+  opacity:1;
+  /* pk-liq 只动背景位置（波形对流），pk-liq-bob 只动 transform（液面整体起伏）*/
+  animation:pk-liq 2.6s linear infinite,
+            pk-liq-bob 3.4s ease-in-out infinite;
+}
+@keyframes pk-liq-bob{
+  0%,100%{transform:translateY(0)}
+  50%    {transform:translateY(-2rpx)}
+}
+@keyframes pk-liq{
+  /* 位移 = 各层自身波长的整数倍：-66=3×22 / +68=2×34 / -112=2×56，
+     三层速度与方向都不同，永远不会同相 —— 是水在互相推，不是一块板在平移 */
+  from{background-position:0 bottom, 0 bottom, 0 bottom}
+  to  {background-position:-66rpx bottom, 68rpx bottom, -112rpx bottom}
+}
+
+/* ---------- ⑨ 图标动效：每枚键的图标跟着这枚键的反馈节奏动 ----------
+   时长不另定：一次性 = 0.6s，按住 = 0.6s 循环，系统在跑 = 2s。
+   图标是"键在说话"的第二个声道，节奏必须和键体完全对齐。 */
+/* 连接：两个链环被拉开又扣回（0.9s，同扫描光） */
+.conn.connecting .ico-link .lk-a{animation:pk-lk-a .9s ease-in-out infinite}
+.conn.connecting .ico-link .lk-b{animation:pk-lk-b .9s ease-in-out infinite}
+@keyframes pk-lk-a{0%,100%{left:.10em} 50%{left:.02em}}
+@keyframes pk-lk-b{0%,100%{left:.35em} 50%{left:.52em}}
+/* 上锁/解锁：锁头被"顶"一下（0.6s，同外扩/内收） */
+.arm.burst .lock,.arm.suck .lock{animation:pk-lock .6s cubic-bezier(.2,.7,.3,1)}
+@keyframes pk-lock{
+  0%  {transform:scale(1)   translateY(0)}
+  32% {transform:scale(1.2) translateY(-.06em)}
+  100%{transform:scale(1)   translateY(0)}
+}
+/* 陀螺仪开：十字轴 2s 来回摆（同键面呼吸） */
+.gyro.on .gy-axis{animation:pk-gy 2s ease-in-out infinite alternate}
+@keyframes pk-gy{from{transform:rotate(-8deg)} to{transform:rotate(8deg)}}
+/* 自动循迹：光点沿着虚线跑（2s） */
+.mode.on .ico-trace .tr-dot{animation:pk-tr 2s ease-in-out infinite}
+@keyframes pk-tr{0%,100%{left:.12em} 50%{left:.58em}}
+/* 自动避障：两道弧从探测点向外扩散（2s 雷达），arc2 晚半拍 */
+.mode.on .ico-avoid .av-arc{transform-origin:-.03em 50%; animation:pk-av 2s ease-out infinite}
+.mode.on .ico-avoid .av-arc2{animation-delay:1s}
+@keyframes pk-av{
+  0%  {opacity:0; transform:scale(.45)}
+  26% {opacity:1}
+  100%{opacity:0; transform:scale(1.12)}
+}
+/* 落叶飘：叶子翻着往下飘（0.6s，与键体冲击波同一条时间轴） */
+.act.busy .ico-leaf{animation:pk-leaf .6s cubic-bezier(.3,.7,.4,1)}
+@keyframes pk-leaf{
+  0%  {transform:translate3d(-.05em,-.1em,0) rotate(-28deg) scale(1)}
+  38% {transform:translate3d(.05em,.11em,0)   rotate(26deg)  scale(.92)}
+  64% {transform:translate3d(-.01em,.05em,0)  rotate(4deg)   scale(1.04)}
+  84% {transform:translate3d(0,.01em,0)       rotate(-3deg)  scale(.99)}
+  100%{transform:translate3d(0,0,0)           rotate(0)      scale(1)}
+}
+/* 空翻：环自己转满一圈（322 = -38 + 360，首尾同角所以不停顿；基准角与
+   .fp-ring 的 rotate(-38deg) 对齐，结束回弹不跳变），中段放大 1.14 做出"离心" */
+.act.busy .ico-flip .fp-ring{animation:pk-flip-ico .6s cubic-bezier(.3,.7,.4,1)}
+@keyframes pk-flip-ico{
+  0%  {transform:rotate(-38deg) scale(1)}
+  18% {transform:rotate(32deg)  scale(1.14)}
+  72% {transform:rotate(284deg) scale(1.06)}
+  100%{transform:rotate(322deg) scale(1)}
+}
+.act.busy .ico-flip .fp-head{animation:pk-flip-head .6s cubic-bezier(.3,.7,.4,1)}
+@keyframes pk-flip-head{
+  0%,100%{transform:rotate(12deg) translateX(0)}
+  34%    {transform:rotate(12deg) translateX(.07em)}
+}
+
+/* ---------- ⑫ 横竖屏切换：屏幕被"翻"了一下 ----------
+   框体不做旋转（真机是瞬变，慢慢转会让人误判尺寸），
+   用一道斜向光扫过整个画面替换掉"啪"地跳变。fixed 不依赖 .page 的定位上下文。 */
+.page::after{
+  content:""; position:fixed; left:0; top:0; right:0; bottom:0;
+  pointer-events:none; z-index:9;
+  background:linear-gradient(104deg,
+    transparent 26%,
+    var(--t-acc-halo-2) 42%,
+    rgba(206,233,255,.46) 50%,
+    var(--t-acc-halo-2) 58%,
+    transparent 74%);
+  transform:translateX(-125%); opacity:0;
+}
+.page.flip::after{animation:pk-screen-flip .55s cubic-bezier(.3,.65,.3,1)}
+@keyframes pk-screen-flip{
+  0%  {transform:translateX(-125%); opacity:0}
+  16% {opacity:1}
+  100%{transform:translateX(125%);  opacity:0}
+}
+
+/* ===========================================================================
+   动效层 · 第二批（2026-10-20 深夜「接入控件并落地」）
+   ---------------------------------------------------------------------
+   ⑩ 个性键 / ⑪ 升降标尺 —— visual-spec 05 节上批未落的两项。
+   移植口径与上批相同：预览页 calc(N * var(--rpx)) 一律写成 N rpx；
+   键面内的 em 跟随键字号（.mode 24rpx），与预览页 1em≈12.5px 等价。
+   两项都只落在**竖屏**：预览方案只在竖屏手机框里定义了这两个控件
+   （横屏中列上下都顶死，模式行顶距顶部栏只剩 4px，塞不下浮动键）。
+   =========================================================================== */
+
+/* ---------- ⑩ 个性键（模式行正上方居中，绝对定位不占流内高度） ----------
+   图标 = 一对上下并行箭头（左支朝上、右支朝下），读作"可切换"。
+   点一下的反馈（.tick 由 JS 挂 640ms）：
+     ① outline 外扩 —— 同特技键的一次性动作语义（不占 box-shadow，按下塌陷不受影响）
+     ② 键面一道细光自上而下滚过 —— "滚过一格"，方向感来自箭头而不是装饰
+     ③ 双箭头错身：先各自弹开、再交叉变淡、再归位；档位文字同时从上方落回
+   它不是状态键，不常亮呼吸 —— 常亮留给真正在跑的自动循迹 / 自动避障。 */
+.persona-row{
+  position:absolute; left:50%; bottom:calc(100% + 34rpx);
+  transform:translateX(-50%);
+  display:flex; justify-content:center; z-index:4;
+}
+.mode.persona{height:56rpx; padding:0 18rpx; overflow:visible}
+.mode.persona .lbl-txt{display:inline-block}   /* 文字要做 transform 落回，inline 不行 */
+/* 一对上下并行箭头：两根杆 + 两个三角，细节一律不要 —— 才读得出是箭头 */
+.ico-persona{width:1.06em; height:1.15em}
+.ico-persona .pa{position:absolute; background:none}
+.ico-persona .pa-shaft{width:.1em; height:.87em; border-radius:.05em; background:currentColor}
+.ico-persona .pa-shaft.up{left:.19em; top:.28em}
+.ico-persona .pa-shaft.dn{left:.77em; top:0}
+.ico-persona .pa-head{
+  width:0; height:0;
+  border-left:.24em solid transparent; border-right:.24em solid transparent;
+}
+.ico-persona .pa-head.up{left:0; top:0; border-bottom:.28em solid currentColor}
+.ico-persona .pa-head.dn{left:.58em; bottom:0; border-top:.28em solid currentColor}
+
+/* tick：一次性外扩。不用绿色 —— 绿在这个界面里等于"正在跑"，换挡只是"换了个档" */
+.mode.persona.tick{
+  position:relative;               /* z-index 与 ::before 的锚点都要定位才生效（同 .mode.on 的做法） */
+  z-index:6;                       /* 外扩环要压住模式行，不能钻到下面去 */
+  border-color:var(--t-acc-edge);
+}
+/* 外扩环走 .fx-ring 真实节点（outline 动画真机不渲染，见动效层 0 节） */
+.mode.persona.tick .fx-ring{
+  display:block; opacity:0;
+  border:2px solid rgba(186,219,255,1);
+  animation:pk-fx-out-p .6s cubic-bezier(.2,.7,.3,1);
+}
+@keyframes pk-fx-out-p{
+  0%  {transform:scale(1);   opacity:1}
+  100%{transform:scale(1.3); opacity:0}
+}
+/* 键面细光：椭圆光斑（不是渐变条——条在非行进轴是硬边），0.42s 后才进入（外扩先被看见） */
+.mode.persona.tick::before{
+  content:""; position:absolute; inset:0; border-radius:5px; pointer-events:none;
+  background-image:
+    radial-gradient(50% 50% at 50% 50%,rgba(206,228,255,.78),rgba(206,228,255,0) 74%),
+    radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.3),rgba(255,255,255,0) 74%);
+  background-repeat:no-repeat;
+  background-size:118% 1.3em, 78% .7em;
+  background-position:50% -1.3em, 22% -2.9em;
+  animation:pk-p-sweep .6s cubic-bezier(.4,.08,.3,1);
+}
+@keyframes pk-p-sweep{
+  0%  {background-position:50% -1.3em, 22% -2.9em}
+  100%{background-position:50% 2.2em,  22% 3.6em}
+}
+/* 档位文字：新值从上方落下并轻微过冲 —— "换了一格"的落位感 */
+.mode.persona.tick .lbl-txt{animation:pk-p-roll .36s cubic-bezier(.2,.85,.3,1)}
+@keyframes pk-p-roll{
+  0%  {opacity:0; transform:translateY(-.55em)}
+  62% {opacity:1; transform:translateY(.07em)}
+  100%{opacity:1; transform:translateY(0)}
+}
+/* 双箭头错身：不直接对穿（那读成"撞了一下"）—— 先各弹开、再交叉变淡、最后归位 */
+.mode.persona.tick .pa.up{animation:pk-pa-up .6s cubic-bezier(.25,.75,.35,1)}
+.mode.persona.tick .pa.dn{animation:pk-pa-dn .6s cubic-bezier(.25,.75,.35,1)}
+@keyframes pk-pa-up{
+  0%  {transform:translateY(0);      opacity:1}
+  30% {transform:translateY(-.22em); opacity:1}
+  56% {transform:translateY(.15em);  opacity:.3}
+  76% {transform:translateY(-.04em); opacity:.9}
+  100%{transform:translateY(0);      opacity:1}
+}
+@keyframes pk-pa-dn{
+  0%  {transform:translateY(0);      opacity:1}
+  30% {transform:translateY(.22em);  opacity:1}
+  56% {transform:translateY(-.15em); opacity:.3}
+  76% {transform:translateY(.04em);  opacity:.9}
+  100%{transform:translateY(0);      opacity:1}
+}
+
+/* ---------- ⑪ 升降标尺（陀螺仪圆盘左侧，与爬升 / 下降联动） ----------
+   静的一条线 + 一个点读不出"正在升降"——那只是指示器，不是仪表。
+   五处一起动，才像一根真的在被推的标尺：
+     ① 刻度分两级（细 10rpx 一格、每 5 格一条主刻度），按住时整体朝动作方向流
+     ② 充能段内部一层走得更快的细光纹（8rpx 周期），比刻度快 —— 速度差
+     ③ 游标用带过冲的曲线滑过去（1.42 回弹），到位后原地 0.6s 呼吸
+     ④ 游标身后拖一条朝运动反方向的短尾光，一伸一缩地喘
+     ⑤ 轨道整条 0.6s 呼吸一次，三角往上顶一下再落定
+   颜色分冷暖：上升偏蓝、下降偏青，不读箭头也知道方向。
+   位移一律取刻度周期的整数倍（50rpx = 1 主刻度 = 5 细刻度），循环点不跳帧。
+   演算值由 JS 按 16ms 一帧实时算好，经 --rlh / --rltop / --rloff / --rla 四个变量下发
+   （见 index.js _rlStep）：按住时充能增长、刻度流动；**松手后速率衰减** —— 游标滑回中点、
+   刻度惯性减速、停在哪就是哪（不再瞬时间归零/回弹）。 */
+.lift-ruler{
+  position:absolute; left:50%; top:50%;
+  width:18rpx; height:96rpx;
+  margin-left:-150rpx; margin-top:-48rpx;
+  display:flex; flex-direction:column; align-items:center;
+  pointer-events:none; z-index:2;
+}
+.lr-chev{
+  width:0; height:0; flex:0 0 auto;
+  border-left:5rpx solid transparent;
+  border-right:5rpx solid transparent;
+  opacity:.5; transition:opacity .16s ease;
+}
+.lr-chev.up{border-bottom:6rpx solid var(--t-acc-edge)}
+.lr-chev.dn{border-top:6rpx solid var(--t-acc-edge)}
+
+.lr-track{
+  position:relative; flex:1; width:3rpx;
+  margin:4rpx 0; border-radius:2px;
+  background:linear-gradient(180deg,rgba(120,140,170,.05),rgba(128,148,178,.26),rgba(120,140,170,.05));
+  transition:box-shadow .18s ease;
+}
+.lr-track::before{        /* 两级刻度：细 10rpx 一格 + 主刻度 50rpx 一条 */
+  content:""; position:absolute; left:50%; top:0; bottom:0;
+  width:18rpx; margin-left:-9rpx;
+  background-image:
+    repeating-linear-gradient(180deg,rgba(158,176,204,.4) 0 1px,transparent 1px 10rpx),
+    repeating-linear-gradient(180deg,rgba(182,200,228,.85) 0 1px,transparent 1px 50rpx);
+  background-size:9rpx 100%, 18rpx 100%;
+  background-position:50% var(--rloff, 0px), 50% var(--rloff, 0px);
+  background-repeat:repeat-y;
+  opacity:.8; transition:opacity .16s ease;
+}
+/* 充能段：液色 + 一层更快的细光纹（8rpx 周期，速度是刻度的 2 倍，经 --rlf 下发）。
+   高度 = |v|×43%，v 本身已按帧演算缓动，这里不再叠 transition（叠了会二次滞后） */
+.lr-fill{
+  position:absolute; left:-1rpx; right:-1rpx;
+  bottom:50%; height:var(--rlh, 0%); border-radius:2px;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 1px,transparent 1px 8rpx),
+    linear-gradient(0deg,var(--t-acc-fill-lo),var(--t-acc-fill-hi));
+  background-position:0 var(--rlf, 0px), 0 0;
+  box-shadow:0 0 7rpx rgba(110,168,255,.6);
+  transition:background .16s ease;
+}
+/* 充能段远端收口：一条 2rpx 亮线，像液柱的液面。
+   少了它，充能段末端会渐隐进轨道背景，读作"蒸发"而不是"充到了这里" */
+.lr-fill::after{
+  content:""; position:absolute; left:0; right:0; height:2rpx;
+  border-radius:2px;
+  background:var(--t-acc-line);
+  box-shadow:0 0 5rpx var(--t-acc-line-glow);
+}
+.lift-ruler.up .lr-fill::after{top:0}
+.lift-ruler.dn .lr-fill::after{
+  bottom:0;
+  background:var(--t-info-line);
+  box-shadow:0 0 5rpx var(--t-info-line-glow);
+}
+/* 游标：位置 = 50% − v×43%，逐帧演算下发（--rltop）。
+   待机时只做一件事：零点上的游标 3s 轻轻亮一下（仪表在待命，不是状态在闪） */
+.lr-dot{
+  position:absolute; left:50%; top:var(--rltop, 50%);
+  width:9rpx; height:9rpx;
+  margin:-4.5rpx 0 0 -4.5rpx;
+  border-radius:50%; background:#8d97ac;
+  transition:background .16s ease, box-shadow .16s ease;
+  animation:pk-lr-idle 3s ease-in-out infinite;
+}
+@keyframes pk-lr-idle{
+  0%,100%{box-shadow:0 0 3rpx rgba(140,165,200,.22)}
+  50%    {box-shadow:0 0 7rpx rgba(154,180,216,.5)}
+}
+/* 拖尾：只在被推的时候出现，方向跟着升降翻 */
+.lr-dot::after{
+  content:""; position:absolute; left:50%; width:3rpx;
+  margin-left:-1.5rpx; height:8rpx;
+  border-radius:999px; opacity:0;
+  transition:opacity .18s ease;
+}
+/* 爬升：充能在中点以上，游标被 v 推到顶，拖尾朝下。
+   位置/高度全部来自 --rlh/--rltop（逐帧演算），类只管方向锚点与配色 */
+.lift-ruler.up .lr-fill{
+  background-image:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.55) 0 1px,transparent 1px 8rpx),
+    linear-gradient(0deg,var(--t-acc-fill-lo),var(--t-acc-fill-hi));
+}
+.lift-ruler.up .lr-dot{
+  background:var(--t-acc-dot);
+  animation:pk-lr-dot .6s ease-in-out infinite;
+}
+.lift-ruler.up .lr-dot::after{
+  top:50%; opacity:calc(.34 * var(--rla, 0));
+  background:linear-gradient(180deg,var(--t-acc-tail),var(--t-acc-tail-0));
+  transform-origin:50% 0;
+  animation:pk-lr-tail .6s ease-in-out infinite;
+}
+.lift-ruler.up .lr-chev.up{
+  opacity:calc(.5 + .5 * var(--rla, 0)); border-bottom-color:var(--t-acc-chev);
+  animation:pk-lr-chev .6s cubic-bezier(.25,.8,.35,1);
+}
+.lift-ruler.up .lr-track{
+  animation:pk-lr-track-up .6s ease-in-out infinite;
+  box-shadow:0 0 3rpx var(--t-acc-tr-lo);
+}
+/* 下降：整套镜像，换青色 */
+.lift-ruler.dn .lr-fill{
+  top:50%; bottom:auto;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.55) 0 1px,transparent 1px 8rpx),
+    linear-gradient(180deg,var(--t-info-fill-lo),var(--t-info-fill-hi));
+}
+.lift-ruler.dn .lr-dot{
+  background:var(--t-info-dot);
+  animation:pk-lr-dot-dn .6s ease-in-out infinite;
+}
+.lift-ruler.dn .lr-dot::after{
+  top:50%; opacity:calc(.34 * var(--rla, 0));
+  background:linear-gradient(180deg,var(--t-info-fx),var(--t-info-fx-0));
+  transform-origin:50% 0;
+  animation:pk-lr-tail .6s ease-in-out infinite;
+}
+.lift-ruler.dn .lr-chev.dn{
+  opacity:calc(.5 + .5 * var(--rla, 0)); border-top-color:var(--t-info-chev);
+  animation:pk-lr-chev-dn .6s cubic-bezier(.25,.8,.35,1);
+}
+.lift-ruler.dn .lr-track{
+  animation:pk-lr-track-dn .6s ease-in-out infinite;
+  box-shadow:0 0 3rpx var(--t-info-tr-lo);
+}
+
+/* 刻度流动与充能细光已改 JS 逐帧演算（--rloff / --rlf，松手后惯性减速停在原地），
+   原 pk-lr-charge / pk-lr-up / pk-lr-dn 及横屏 -l 版全部删除 —— CSS 循环动画松手
+   会在相位处瞬间归零（刻度跳变）+ 与游标 transition 各走各的（小球乱跳），全部废除。 */
+/* 游标原地呼吸：只改辉光，不改位置（位置归 transition 管，动画抢了就不弹了） */
+@keyframes pk-lr-dot{
+  0%,100%{box-shadow:0 0 6rpx var(--t-acc-tr-hi)}
+  50%    {box-shadow:0 0 15rpx var(--t-acc-dot-glow),
+                    0 0 3rpx rgba(255,255,255,.85)}
+}
+@keyframes pk-lr-dot-dn{
+  0%,100%{box-shadow:0 0 6rpx var(--t-info-tr-hi)}
+  50%    {box-shadow:0 0 15rpx var(--t-info-dot-glow),
+                    0 0 3rpx rgba(255,255,255,.85)}
+}
+/* 拖尾：从游标往外一伸一缩，像被水流拖着 */
+@keyframes pk-lr-tail{
+  0%,100%{transform:scaleY(.6);  opacity:.24}
+  50%    {transform:scaleY(1.15); opacity:.46}
+}
+/* 三角：顶一下再落定（一次性，不是无限脉冲） */
+@keyframes pk-lr-chev{
+  0%  {transform:translateY(3rpx) scale(.78); opacity:.25}
+  38% {transform:translateY(-1rpx) scale(1.3); opacity:1}
+  100%{transform:translateY(0) scale(1); opacity:1}
+}
+@keyframes pk-lr-chev-dn{
+  0%  {transform:translateY(-3rpx) scale(.78); opacity:.25}
+  38% {transform:translateY(1rpx) scale(1.3); opacity:1}
+  100%{transform:translateY(0) scale(1); opacity:1}
+}
+@keyframes pk-lr-track-up{
+  0%,100%{box-shadow:0 0 3rpx var(--t-acc-tr-lo)}
+  50%    {box-shadow:0 0 10rpx var(--t-acc-tr-md)}
+}
+@keyframes pk-lr-track-dn{
+  0%,100%{box-shadow:0 0 3rpx var(--t-info-tr-lo)}
+  50%    {box-shadow:0 0 10rpx var(--t-info-tr-md)}
+}
+
+/* ===========================================================================
+   动效层 · 第三批（2026-10-21）：横屏 ⑩ 个性键 + ⑪ 升降标尺 落地
+   方案与 05 节复刻 / land-spec 一致：
+     · 个性键并入模式行中位（循迹 · 个性 · 避障）—— 右端浮键与居中模式行重叠 13px，已否
+     · 标尺收进圆盘内左缘做 HUD 带（盘外四槽贴列边，只剩 0.8vw 的缝）
+   ⚠️ 单位口径：横屏 rpx 按长边(812/750)换算会翻倍，标尺若沿用竖屏 rpx，
+      条纹周期和 keyframes 位移会一起错位。所以横屏标尺整体改用 px 重标
+      （5/25px 刻度、4px 细光纹 —— 与竖屏 10/50rpx、8rpx 同一物理比例），
+      keyframes 全部加 -l 后缀另立一份，不与竖屏同名（同名后者全局覆盖前者）。
+   =========================================================================== */
+
+/* ---- ⑩ 个性键（横屏）：比同行开关矮一档（竖屏 56/60 的比例带上横屏：8vh × 56/60） ---- */
+.page.land .mode.persona {
+  height: 7.5vh;
+  padding: 0 1.6vw;
+  overflow: visible;               /* tick 的外扩 outline 与键内光斑都在键面之外 */
+}
+/* tick 四件套（外扩 / 光斑下扫 / 文字落回 / 双箭头错身）选择器不带方向前缀，
+   竖屏横屏共用同一套 —— .mode.persona.tick 定义见动效层第二批。 */
+
+/* ---- ⑪ 升降标尺（横屏）：盘内左缘 HUD 带 ----
+   定位推导：left = 中线 − 半盘 + 7% 盘（盘 = min(43vh,44vw)，与 .land-gyro-cv 同源），
+   高 58% 盘径，垂直居中。 */
+.page.land .lift-ruler {
+  position: absolute;
+  left: calc(50% - min(43vh, 44vw) * 0.5 + min(43vh, 44vw) * 0.07);
+  top: 50%;
+  width: 9px;
+  height: calc(min(43vh, 44vw) * 0.58);
+  margin: 0;                       /* 归掉竖屏的 margin-left/top 负偏移 */
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;            /* 纯联动仪表，不拦触摸 */
+  z-index: 2;
+}
+.page.land .lr-chev {
+  width: 0; height: 0; flex: 0 0 auto;
+  border-left: 2.5px solid transparent;
+  border-right: 2.5px solid transparent;
+  opacity: 0.5;
+  transition: opacity 0.16s ease;
+}
+.page.land .lr-chev.up   { border-bottom: 3px solid var(--t-acc-edge); }
+.page.land .lr-chev.dn   { border-top: 3px solid var(--t-acc-edge); }
+.page.land .lr-track {
+  position: relative; flex: 1;
+  width: 2px; margin: 2px 0; border-radius: 1px;
+  background: linear-gradient(180deg, rgba(120,140,170,.05), rgba(128,148,178,.26), rgba(120,140,170,.05));
+  transition: box-shadow 0.18s ease;
+}
+/* 两级刻度：细 5px 一格 + 主刻度 25px 一条（= 竖屏 10/50rpx 的物理尺寸） */
+.page.land .lr-track::before {
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0;
+  width: 9px; margin-left: -4.5px;
+  background-image:
+    repeating-linear-gradient(180deg, rgba(158,176,204,.4) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(180deg, rgba(182,200,228,.85) 0 1px, transparent 1px 25px);
+  background-size: 9px 100%, 9px 100%;
+  background-position: 50% var(--rloff, 0px), 50% var(--rloff, 0px);
+  background-repeat: repeat-y;
+  opacity: 0.8;
+  transition: opacity 0.16s ease;
+}
+/* 充能段：液色 + 更快的细光纹（4px 周期）；充能长度带 1.32 过冲 */
+/* 高度/位置由 JS 逐帧演算（--rlh/--rltop/--rloff/--rlf），与竖屏同一套变量；不再叠 transition */
+.page.land .lr-fill {
+  position: absolute; left: -1px; right: -1px;
+  bottom: 50%; height: var(--rlh, 0%); border-radius: 1px;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.5) 0 1px, transparent 1px 4px),
+    linear-gradient(0deg, var(--t-acc-fill-lo), var(--t-acc-fill-hi));
+  background-position: 0 var(--rlf, 0px), 0 0;
+  box-shadow: 0 0 4px rgba(110,168,255,.6);
+  transition: background 0.16s ease;
+}
+/* 充能段远端收口：2px 亮线，防"蒸发"感 */
+.page.land .lr-fill::after {
+  content: ""; position: absolute; left: 0; right: 0;
+  height: 2px; border-radius: 1px;
+  background: var(--t-acc-line);
+  box-shadow: 0 0 3px var(--t-acc-line-glow);
+}
+.page.land .lift-ruler.up .lr-fill::after { top: 0; }
+.page.land .lift-ruler.dn .lr-fill::after {
+  bottom: 0;
+  background: var(--t-info-line);
+  box-shadow: 0 0 3px var(--t-info-line-glow);
+}
+/* 游标：1.42 过冲；待机 3s 轻呼吸（"仪表在待命"，不是"状态在闪"） */
+.page.land .lr-dot {
+  position: absolute; left: 50%; top: var(--rltop, 50%);
+  width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%; background: #8d97ac;
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+  animation: pk-lr-idle-l 3s ease-in-out infinite;
+}
+@keyframes pk-lr-idle-l {
+  0%,100% { box-shadow: 0 0 2px rgba(140,165,200,.22); }
+  50%     { box-shadow: 0 0 4px rgba(154,180,216,.5); }
+}
+/* 拖尾：被推时出现，方向跟升降翻 */
+.page.land .lr-dot::after {
+  content: ""; position: absolute; left: 50%;
+  width: 2px; margin-left: -1px; height: 5px;
+  border-radius: 99px; opacity: 0;
+  transition: opacity 0.18s ease;
+}
+/* 爬升：充能向上、游标到顶、拖尾朝下 */
+.page.land .lift-ruler.up .lr-fill {
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 1px, transparent 1px 4px),
+    linear-gradient(0deg, var(--t-acc-fill-lo), var(--t-acc-fill-hi));
+}
+.page.land .lift-ruler.up .lr-dot {
+  background: var(--t-acc-dot);
+  animation: pk-lr-dot-l 0.6s ease-in-out infinite;
+}
+.page.land .lift-ruler.up .lr-dot::after {
+  top: 50%; opacity: calc(.34 * var(--rla, 0));
+  background: linear-gradient(180deg, var(--t-acc-tail), var(--t-acc-tail-0));
+  transform-origin: 50% 0;
+  animation: pk-lr-tail-l 0.6s ease-in-out infinite;
+}
+.page.land .lift-ruler.up .lr-chev.up {
+  opacity: calc(.5 + .5 * var(--rla, 0)); border-bottom-color: var(--t-acc-chev);
+  animation: pk-lr-chev-l 0.6s cubic-bezier(.25,.8,.35,1);
+}
+.page.land .lift-ruler.up .lr-track {
+  animation: pk-lr-track-up-l 0.6s ease-in-out infinite;
+  box-shadow: 0 0 2px var(--t-acc-tr-lo);
+}
+/* 下降：整套镜像，换青色 */
+.page.land .lift-ruler.dn .lr-fill {
+  top: 50%; bottom: auto;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--t-info-fill-lo), var(--t-info-fill-hi));
+}
+.page.land .lift-ruler.dn .lr-dot {
+  background: var(--t-info-dot);
+  animation: pk-lr-dot-dn-l 0.6s ease-in-out infinite;
+}
+.page.land .lift-ruler.dn .lr-dot::after {
+  top: 50%; opacity: calc(.34 * var(--rla, 0));
+  background: linear-gradient(180deg, var(--t-info-fx), var(--t-info-fx-0));
+  transform-origin: 50% 0;
+  animation: pk-lr-tail-l 0.6s ease-in-out infinite;
+}
+.page.land .lift-ruler.dn .lr-chev.dn {
+  opacity: calc(.5 + .5 * var(--rla, 0)); border-top-color: var(--t-info-chev);
+  animation: pk-lr-chev-dn-l 0.6s cubic-bezier(.25,.8,.35,1);
+}
+.page.land .lift-ruler.dn .lr-track {
+  animation: pk-lr-track-dn-l 0.6s ease-in-out infinite;
+  box-shadow: 0 0 2px var(--t-info-tr-lo);
+}
+
+/* ---- 横屏标尺 keyframes（px 版，-l 后缀不与竖屏 rpx 版同名） ----
+   刻度流动 / 充能细光已改 JS 逐帧演算（--rloff/--rlf），位移类 keyframes 删除；
+   剩下的都是「只改辉光/形状」的呼吸与一次性顶落，松手摘除时不涉及位置跳变。 */
+@keyframes pk-lr-dot-l {
+  0%,100% { box-shadow: 0 0 3px var(--t-acc-tr-hi); }
+  50%     { box-shadow: 0 0 8px var(--t-acc-dot-glow),
+                       0 0 2px rgba(255,255,255,.85); }
+}
+@keyframes pk-lr-dot-dn-l {
+  0%,100% { box-shadow: 0 0 3px var(--t-info-tr-hi); }
+  50%     { box-shadow: 0 0 8px var(--t-info-dot-glow),
+                       0 0 2px rgba(255,255,255,.85); }
+}
+@keyframes pk-lr-tail-l {
+  0%,100% { transform: scaleY(.6);   opacity: .24; }
+  50%     { transform: scaleY(1.15); opacity: .46; }
+}
+@keyframes pk-lr-chev-l {
+  0%  { transform: translateY(2px)  scale(.78); opacity: .25; }
+  38% { transform: translateY(-1px) scale(1.3); opacity: 1; }
+  100%{ transform: translateY(0)    scale(1);   opacity: 1; }
+}
+@keyframes pk-lr-chev-dn-l {
+  0%  { transform: translateY(-2px) scale(.78); opacity: .25; }
+  38% { transform: translateY(1px)  scale(1.3); opacity: 1; }
+  100%{ transform: translateY(0)    scale(1);   opacity: 1; }
+}
+@keyframes pk-lr-track-up-l {
+  0%,100% { box-shadow: 0 0 2px var(--t-acc-tr-lo); }
+  50%     { box-shadow: 0 0 6px var(--t-acc-tr-md); }
+}
+@keyframes pk-lr-track-dn-l {
+  0%,100% { box-shadow: 0 0 2px var(--t-info-tr-lo); }
+  50%     { box-shadow: 0 0 6px var(--t-info-tr-md); }
+}
+
+/* ===========================================================================
+   主题动效差异层（2026-10-21）：交互反馈也纳入个性设计
+   节奏三档（60ms 按下 / 0.6s 手指 / ≥2s 系统）三套皮肤共同遵守 ——
+   换的是"形态与包络"，不是节奏档位；布局零改动。
+     T1 钢穹 · 机械克制 —— 单脉冲、干净利落（= 上方全部现行规则，无覆盖）
+     T2 紫电 · 电弧脉冲 —— 双闪回弹、更陡的缓动、更脆的收放
+     T3 极昼 · 柔光长扩 —— 更淡更绵、幅度更大但透明度更低、周期更缓
+   标尺是 JS 逐帧驱动，速度性格系数在 utils/theme.js 的 motion 字段。
+   =========================================================================== */
+
+/* ---------- T2 紫电 · 电弧脉冲 ---------- */
+/* 开关周期环：一次周期内两次回弹（主扩 → 收 → 二次扩灭），像电弧打了两下 */
+.page.theme-2 .mode.on .fx-ring,
+.page.theme-2 .gyro.on .fx-ring{
+  animation: pk-ring-volt 2s cubic-bezier(.2, .9, .25, 1) infinite;
+}
+/* 2026-10-23 用户定稿：开陀螺外扩框的宽对齐 T3（3rpx），T1/T2 不再用 5rpx 粗环 */
+.page.theme-1 .gyro.on .fx-ring,
+.page.theme-2 .gyro.on .fx-ring{
+  border-width: 3rpx;
+}
+/* 一次性外扩：中途回跳的二闪；内收：更快吸附 + 到位补一闪 */
+.page.theme-2 .arm.burst .fx-ring,
+.page.theme-2 .act.busy .fx-ring,
+.page.theme-2 .mode.persona.tick .fx-ring{
+  animation: pk-fx-out-volt .6s cubic-bezier(.16, .9, .2, 1);
+}
+.page.theme-2 .arm.suck .fx-ring{
+  animation: pk-fx-in-volt .6s cubic-bezier(.16, .9, .2, 1);
+}
+/* 陀螺键呼吸：单峰改双脉冲；内辉光同步 */
+.page.theme-2 .gyro.on{ animation: pk-breathe-volt 2s ease-in-out infinite; }
+.page.theme-2 .gyro.on::before{ animation: pk-inner-volt 2s ease-in-out infinite; }
+/* 个性 tick 键面光斑：垂直下扫改对角劈落 */
+.page.theme-2 .mode.persona.tick::before{
+  animation: pk-p-sweep-volt .6s cubic-bezier(.3, .12, .25, 1);
+}
+/* 连接扫描：更急（0.72s），扫描线与图标动画同步加速 */
+.page.theme-2 .conn.connecting{ animation-duration: .72s; }
+.page.theme-2 .conn.connecting::after{ animation-duration: .72s; }
+.page.theme-2 .conn.connecting .ico-link .lk-a,
+.page.theme-2 .conn.connecting .ico-link .lk-b{ animation-duration: .72s; }
+
+@keyframes pk-ring-volt{
+  0%  {transform:scale(1);    opacity:.95}
+  26% {transform:scale(1.30); opacity:.5}
+  36% {transform:scale(1.14); opacity:.72}
+  58% {transform:scale(1.52); opacity:0}
+  100%{transform:scale(1.52); opacity:0}
+}
+@keyframes pk-fx-out-volt{
+  0%  {transform:scale(1);    opacity:.95}
+  30% {transform:scale(1.22); opacity:.6}
+  42% {transform:scale(1.08); opacity:.8}
+  100%{transform:scale(1.5);  opacity:0}
+}
+@keyframes pk-fx-in-volt{
+  0%  {transform:scale(1.5);  opacity:.9}
+  58% {transform:scale(.96);  opacity:.55}
+  72% {transform:scale(1.06); opacity:.75}
+  100%{transform:scale(1);    opacity:0}
+}
+@keyframes pk-breathe-volt{
+  0%,100%{background-color:var(--t-acc-breathe-lo)}
+  38%    {background-color:var(--t-acc-breathe-hi)}
+  50%    {background-color:var(--t-acc-breathe-lo)}
+  62%    {background-color:var(--t-acc-breathe-hi)}
+  74%    {background-color:var(--t-acc-breathe-lo)}
+}
+@keyframes pk-inner-volt{
+  0%,100%{box-shadow:inset 0 0 .12em var(--t-acc-inner-lo)}
+  38%    {box-shadow:inset 0 0 .42em var(--t-acc-inner-hi)}
+  50%    {box-shadow:inset 0 0 .1em  var(--t-acc-inner-lo)}
+  62%    {box-shadow:inset 0 0 .38em var(--t-acc-inner-hi)}
+  74%    {box-shadow:inset 0 0 .1em  var(--t-acc-inner-lo)}
+}
+@keyframes pk-p-sweep-volt{
+  0%  {background-position:-1.8em -1.6em, -2.4em -3.2em}
+  100%{background-position:2.6em 2.4em,   3.2em 3.8em}
+}
+
+/* ---------- T3 极昼 · 柔光长扩 ---------- */
+/* 周期环：边更细、更淡、扩得更远、周期放缓到 2.6s（仍是"系统在跑"档） */
+.page.theme-3 .mode.on .fx-ring,
+.page.theme-3 .gyro.on .fx-ring{
+  border-width: 3rpx;
+  animation: pk-ring-soft 2.6s ease-out infinite;
+}
+/* 一次性外扩 / 内收：幅度更大、透明度压低，收尾绵 */
+.page.theme-3 .arm.burst .fx-ring,
+.page.theme-3 .act.busy .fx-ring,
+.page.theme-3 .mode.persona.tick .fx-ring{
+  animation: pk-fx-out-soft .6s ease-out;
+}
+.page.theme-3 .arm.suck .fx-ring{
+  animation: pk-fx-in-soft .6s ease-out;
+}
+/* 陀螺键呼吸：放缓（2.6s）—— 浅色底上幅度本身就小，慢呼吸读作"安稳" */
+.page.theme-3 .gyro.on{ animation-duration: 2.6s; }
+.page.theme-3 .gyro.on::before{ animation-duration: 2.6s; }
+/* 连接扫描：更缓（1.1s） */
+.page.theme-3 .conn.connecting{ animation-duration: 1.1s; }
+.page.theme-3 .conn.connecting::after{ animation-duration: 1.1s; }
+.page.theme-3 .conn.connecting .ico-link .lk-a,
+.page.theme-3 .conn.connecting .ico-link .lk-b{ animation-duration: 1.1s; }
+
+@keyframes pk-ring-soft{
+  0%  {transform:scale(1);   opacity:.55}
+  70% {transform:scale(1.6); opacity:0}
+  100%{transform:scale(1.6); opacity:0}
+}
+@keyframes pk-fx-out-soft{
+  0%  {transform:scale(1);    opacity:.55}
+  100%{transform:scale(1.65); opacity:0}
+}
+@keyframes pk-fx-in-soft{
+  0%  {transform:scale(1.55); opacity:.6}
+  78% {transform:scale(.98);  opacity:.35}
+  100%{transform:scale(1);    opacity:0}
+}
+/* 特技三层光带：紫电的专属形态在下方「个性形态层」整段重定义（含键面与外扩环） */
+
+/* ===========================================================================
+   一键起飞（2026-10-21 定稿落地）：纯图标键 —— 跑道 + 上升箭头，无文字。
+   处理与特技键同一套：armed 守卫 + 抬手触发 + busyKey 600ms 编排（ACTION.TAKEOFF=7）。
+   反馈全部走真实节点（真机 webview 不渲染伪元素/outline 动画，见动效层 0 节）：
+     fx-ring ×2  外扩双环（busy）      to-charge  按住内渗光（=爬升键同款）
+     to-sweep   按住扫光 / busy 光斑下扫
+     to-spark    尾迹火花（busy）      图标三件套  离地/跑道/蓄力抖动（节点动画）
+   形态：accent 实底圆 + 白图标；off 灰化；按下塌陷 + 变色亮一档；
+   armed 待机用 to-flow 节点（边沿环绕光流，不用 :not 选择器，真机稳）；拒绝 = 水平轻晃。
+   位置（定稿）：竖屏 = 两摇杆正中间、键底与摇杆下方文字齐平、直径 88rpx（=上锁键高）；
+                横屏 = 机身姿态左边空白带、左挪 0.6vw / 下挪 4.5vh 顶边锚定、直径 80% att 宽。
+   =========================================================================== */
+
+/* ---- 键体 ---- */
+.sticks{position:relative}
+.takeoff{
+  display:flex; align-items:center; justify-content:center;
+  /* 显式定位（与横屏同口径）：left = 50% − 半径 44rpx，不用 translateX(-50%)
+     —— 百分比 translate 在真机 webview 上会把键渲染歪（竖屏初始歪实测） */
+  position:absolute; left:calc(50% - 44rpx); bottom:8rpx; z-index:3;
+  width:88rpx; height:88rpx;
+  box-sizing:border-box; border-radius:50%;
+  /* 2026-11-15 质感严格参考爬升键：公共键帽组（实体键配方）提供键面/侧壁/内环；
+     边框保留 3rpx 占位但常态透明 —— 按住态的边框流（pk-hold-border 动画 border-color）还要用，
+     内环白边由公共组的 inset 提供，不与边框叠加发灰。
+     交互特效（按住蓄力/光晕环绕/busy 编排）不动。
+     （2026-10-23 旧注：同 surface 底 + t-border 边框 —— 已被实体键配方取代） */
+  border:3rpx solid transparent;
+  background-color:var(--t-key-face);
+  color:var(--t-text);
+  /* ★ em 基准与爬升键对齐（24rpx）：按住态条纹周期/内渗光半径全按 em 算，
+     与 .climb（font-size:24rpx）同一套 keyframes 逐值生效 */
+  font-size:24rpx;
+  overflow:visible;
+  /* 键帽厚度阴影由公共组提供（0 4rpx 0 cap + 外散影），此处不再重复 */
+  transition:transform .06s ease, background-color .12s ease, box-shadow .06s ease,
+    border-color .15s ease;   /* 松手边框回落软着陆（按住层淡出期间 busy 接管） */
+}
+.takeoff.off{opacity:.45}
+.takeoff.btn-down{
+  /* 位移/立体阴影走公共键帽组（= 爬升键同款）；这里只保留交互反馈：
+     按住蓄力底色 + 边框亮流动。原来的三层深坑内阴影属于立体造型，
+     已按爬升键口径统一为简单按压（0 2rpx 4rpx 外散影） */
+  background-color:var(--t-acc-hold-bg);
+  border-color:var(--t-acc-hold);
+  animation:pk-hold-border .6s linear infinite;
+}
+.takeoff.btn-down.shake{animation:none}
+
+/* armed 待机 · 边沿环绕灯带（2026-11-15 四稿：按个性分型；五稿：个性3 改旋转波浪纹 + 全型提亮）
+   ── 个性分型（2026-11-15 用户定）：
+      个性1(theme-1/默认) = 环绕灯带：亮头渐隐尾顺时针环流，即下面这套基础样式，不动；
+      个性2(theme-2) = 灯带呼吸：亮度 + 环径双路呼吸（opacity .32↔1 + scale .94↔1.06），
+        峰值光环撑出键缘 ~6% 成光晕，一眼可辨（六稿加强，不再是单纯淡入淡出）；
+      个性3(theme-3) = 旋转波浪细纹边框（七稿，用户定「像 〰️ 一样的细亮纹路」）：
+        mask 开三圈同心细线环，线上跑三角波亮度（3 波/圈），随 wrapper 1.6s/圈环流。
+   三型共用同一节点/mask/几何，theme 规则只换 background 与（如需）animation；
+   辉光 drop-shadow 挂在 .to-flow 合成结果上（mask 之后生效才能真发光），呼吸/波浪
+   明暗自动带动辉光。旋转载体仍是子节点 transform rotate（真机验证过的动效路径），
+   不碰键体 transform/box-shadow，不违纪律①。off / 按住 / busy 时整体隐藏。
+   五稿提亮：辉光 6→9rpx、轨道环 .25→.32、个性1 白热 .45→.62、个性2/3 各叠白热层。 */
+.to-flow{
+  position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  animation:pk-to-flow 2.4s linear infinite;
+  filter:drop-shadow(0 0 9rpx var(--t-takeoff-bg-hi));
+}
+.takeoff.off .to-flow{display:none}
+.takeoff.btn-down .to-flow{display:none}
+.takeoff.busy .to-flow{display:none}
+@keyframes pk-to-flow{
+  from{transform:rotate(0deg)}
+  to  {transform:rotate(360deg)}
+}
+/* 轨道槽：整圈淡色细环 —— 灯带未亮到的区段也看得出"带子在键缘上走"
+   （随 wrapper 匀速旋转但环形对称，视觉上静止） */
+.to-flow .f-track{
+  position:absolute; inset:-1rpx; border-radius:50%;
+  border:2rpx solid var(--t-takeoff-bg-hi); opacity:.32;
+}
+/* 灯带：双层 conic —— 底层彩色带（242° 渐起 → 332° 全亮 → 360°），亮头在旋转前方；
+   上层半透明白只在亮段叠一份，把头部提温成"白热"。环形 mask 只露键缘一圈。
+   f-band 外扩 2rpx → 环带跨在键缘上（内侧 1rpx / 外侧 3rpx），读作"绕边"而非"贴内"。
+   -webkit-mask 环形开孔是小程序 webview 的常规能力（圆环进度条同款手法）。 */
+.to-flow .f-band{
+  position:absolute; inset:-2rpx; border-radius:50%;
+  background:
+    conic-gradient(from 0deg,
+      rgba(255,255,255,0) 242deg, rgba(255,255,255,.62) 332deg, rgba(255,255,255,.62) 360deg),
+    conic-gradient(from 0deg,
+      transparent 242deg, var(--t-takeoff-bg-hi) 332deg, var(--t-takeoff-bg-hi) 360deg);
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 9rpx), #000 calc(100% - 2rpx));
+          mask:radial-gradient(farthest-side, transparent calc(100% - 9rpx), #000 calc(100% - 2rpx));
+}
+/* ── 个性2：灯带呼吸（2026-11-15 六稿加强：亮度 + 环径双路呼吸，不再是单纯淡入淡出）——
+   整圈常亮环，2.4s ease-in-out：谷点 opacity .32 + scale .94，峰点 opacity 1 + scale 1.06。
+   scale 走在 f-band 自己的 transform 上（与 wrapper 的 rotate 互不覆盖），
+   峰值时环径向外撑出键缘 ~6% —— 读作"光环在膨胀收缩"，一眼可辨是呼吸不是闪烁。
+   注意圆键 overflow:hidden 裁不住 transform 子节点（真机实测越圈），这里反而是特性：
+   呼吸的膨胀部分自然溢出键外，成为光晕。 */
+.page.theme-2 .to-flow .f-band{
+  background:
+    conic-gradient(from 0deg,
+      rgba(255,255,255,.42) 0deg, rgba(255,255,255,.42) 360deg),
+    conic-gradient(from 0deg,
+      var(--t-takeoff-bg-hi) 0deg, var(--t-takeoff-bg-hi) 360deg);
+  animation:pk-to-breath 2.4s ease-in-out infinite;
+}
+@keyframes pk-to-breath{
+  0%, 100%{ opacity:.32; transform:scale(.94) }
+  50%     { opacity:1;   transform:scale(1.06) }
+}
+/* ── 个性3：旋转波浪细纹边框（2026-11-15 七稿，用户定「像 〰️ 一样的细亮纹路」）——
+   mask 一次开出**三圈同心细线环**（各 2rpx 宽、间隙 1rpx，贴键缘 d∈[1,9]rpx），
+   线上叠三角波亮度（3 个整波/圈：transparent↔白热 .85 ↔ transparent，谷底全暗
+   只剩轨道环 .32 兜底）→ 三条细亮线上的光波随 wrapper 匀速旋转环流，
+   读作 〰️ 那种细亮波纹而不是宽亮块。转止单独 1.6s/圈 → 波峰每 ~0.53s 扫过一点。
+   配色（2026-11-15 用户定「换一个对比度高的颜色」）：theme-3 是浅色键面，
+   --t-takeoff-bg-hi 的亮天蓝 #38a0e0 压不住底 → 换 theme-3 自己的深蓝主色
+   --t-accent（#2456b3），彩层 / 轨道环 / 辉光三处同步，波峰仍叠白热成高光。 */
+.page.theme-3 .to-flow{
+  animation-duration:1.6s;
+  filter:drop-shadow(0 0 9rpx var(--t-accent));
+}
+.page.theme-3 .to-flow .f-track{border-color:var(--t-accent)}
+.page.theme-3 .to-flow .f-band{
+  background:
+    conic-gradient(from 0deg,
+      transparent 0deg, rgba(255,255,255,.85) 60deg, transparent 120deg,
+      rgba(255,255,255,.85) 180deg, transparent 240deg,
+      rgba(255,255,255,.85) 300deg, transparent 360deg),
+    conic-gradient(from 0deg,
+      transparent 0deg, var(--t-accent) 60deg, transparent 120deg,
+      var(--t-accent) 180deg, transparent 240deg,
+      var(--t-accent) 300deg, transparent 360deg);
+  -webkit-mask:radial-gradient(farthest-side,
+    transparent calc(100% - 9rpx), #000 calc(100% - 9rpx),
+    #000 calc(100% - 7rpx), transparent calc(100% - 7rpx),
+    transparent calc(100% - 6rpx), #000 calc(100% - 6rpx),
+    #000 calc(100% - 4rpx), transparent calc(100% - 4rpx),
+    transparent calc(100% - 3rpx), #000 calc(100% - 3rpx),
+    #000 calc(100% - 1rpx), transparent calc(100% - 1rpx));
+          mask:radial-gradient(farthest-side,
+    transparent calc(100% - 9rpx), #000 calc(100% - 9rpx),
+    #000 calc(100% - 7rpx), transparent calc(100% - 7rpx),
+    transparent calc(100% - 6rpx), #000 calc(100% - 6rpx),
+    #000 calc(100% - 4rpx), transparent calc(100% - 4rpx),
+    transparent calc(100% - 3rpx), #000 calc(100% - 3rpx),
+    #000 calc(100% - 1rpx), transparent calc(100% - 1rpx));
+}
+
+/* 图标：跑道横线 + 上升箭头（三角头 + 竖杆） */
+.takeoff .ico{
+  width:40rpx; height:40rpx; margin:0; position:relative;
+  color:inherit; transition:transform .06s ease;
+}
+.ico-takeoff .to-head{position:absolute; left:24%; right:24%; top:2%; height:34%;
+  background:currentColor; border-radius:2px;
+  clip-path:polygon(50% 0,100% 100%,0 100%)}
+.ico-takeoff .to-shaft{position:absolute; left:44%; right:44%; top:30%; bottom:26%;
+  background:currentColor; border-radius:2px}
+.ico-takeoff .to-base{position:absolute; left:4%; right:4%; bottom:0; height:12%;
+  background:currentColor; border-radius:2px}
+/* 按下蓄力①：图标下压（静态，保持按住姿态）
+   —— 原配的压簧抖动已按用户要求取消：立体按压（厚度/内凹/变色）本身就是
+   充分的按压反馈，再叠箭头往复反而读成晃动 */
+.takeoff.btn-down .ico-takeoff{transform:scale(.9) translateY(4%)}
+
+/* ---- 按住蓄力（btn-down 期间持续运转，抬手接 busy 起飞编排） ---- */
+/* 蓄力③：内光渐强（0.4s 渐入 = 按住越久越"充"，松手柔和收）
+   动画名由形态层按主题分配；T1 叠第二条扫光带背景（与预览双层一致：
+   条纹在 fx-scan、白带在 to-charge，两条覆盖层松手各自淡出） */
+.to-charge{
+  position:absolute; inset:0; border-radius:50%; pointer-events:none; opacity:0;
+  background-image:linear-gradient(180deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.28) 50%,rgba(255,255,255,0) 70%);
+  background-repeat:no-repeat;
+  background-size:100% 1.6em;
+  background-position:0 4.2em;
+  transition:opacity .25s ease;
+}
+.takeoff.btn-down .to-charge{
+  opacity:1;
+  /* T1 稳流基线：内渗光呼吸 + 扫光带上飘（两条动画各管一个属性，互不打架）；
+     T2/T3 由形态层整条覆盖为单动画（无白带层） */
+  animation:pk-suck-loop .6s ease-in-out infinite, pk-hold-sweep 1.1s linear infinite;
+}
+/* 旋转弧方案已废弃（2026-10-22 用户定稿）：按住反馈直接对齐爬升/下降键 ——
+   深底流动条纹 + 边框亮流动 + 内渗光（to-charge）+ 扫光（to-sweep），交互语言全页统一。
+   弧线方案的两个教训：不对称弧旋转读作键在晃；opacity 写进基础规则会常驻显示。 */
+
+/* ---- busy 起飞编排（0.6s）：全部真实节点 ---- */
+/* 外扩双环：复用 fx-ring 体系，第二环延迟 80ms */
+.takeoff.busy .fx-ring{
+  display:block; opacity:0;
+  border:4rpx solid var(--bc, var(--t-acc-ring));
+  animation:pk-fx-out .6s cubic-bezier(.2,.7,.3,1);
+}
+.takeoff.busy .fx-ring2{
+  display:block; opacity:0;
+  border:3rpx solid rgba(255,255,255,.5);
+  animation:pk-to-ring2 .6s cubic-bezier(.2,.7,.3,1); animation-delay:.08s;
+}
+@keyframes pk-to-ring2{
+  0%  {opacity:.7; transform:scale(1)}
+  100%{opacity:0;   transform:scale(1.5)}
+}
+/* 键面光斑下扫：to-sweep 节点（圆形自裁剪，不依赖键 overflow） */
+.to-sweep{
+  position:absolute; inset:0; border-radius:50%; pointer-events:none; opacity:0;
+  background-image:radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.65),rgba(255,255,255,0) 74%);
+  background-repeat:no-repeat; background-size:130% 1.4em; background-position:50% -1.5em;
+}
+.takeoff.busy .to-sweep{opacity:1; animation:pk-to-sweep .6s cubic-bezier(.4,.08,.3,1)}
+@keyframes pk-to-sweep{0%{background-position:50% -1.5em}100%{background-position:50% 2.5em}}
+/* to-sweep 节点现仅承担 busy 光斑下扫（按住扫光带已移至 fx-scan 覆盖层，
+   松手时覆盖层淡出而 busy 从不可见处起步 —— 两态无瞬跳交接） */
+/* 图标离地 + 跑道延伸 + 尾迹火花（真实节点） */
+/* 图标离地：单程平滑升降（2026-10-22：原双折返+回弹读作果冻晃，砍掉折返） */
+.takeoff.busy .to-head,
+.takeoff.busy .to-shaft{animation:pk-to-fly .6s cubic-bezier(.25,.6,.3,1)}
+@keyframes pk-to-fly{
+  0%  {transform:translateY(14%)}
+  55% {transform:translateY(-34%)}
+  100%{transform:translateY(0)}
+}
+.takeoff.busy .to-base{animation:pk-to-base .6s ease-out}
+/* 跑道：只做「变暗收窄→复原」，不做 scaleX 过冲（过冲=果冻挤压） */
+@keyframes pk-to-base{
+  0%  {transform:scaleX(1);  opacity:1}
+  35% {transform:scaleX(.55);opacity:.35}
+  100%{transform:scaleX(1);  opacity:1}
+}
+.to-spark{
+  position:absolute; left:50%; top:-6%; width:8rpx; height:8rpx;
+  margin-left:-4rpx; border-radius:50%; background:currentColor; opacity:0; pointer-events:none;
+}
+.takeoff.busy .to-spark{animation:pk-to-spark .6s ease-out}
+@keyframes pk-to-spark{
+  0%  {opacity:0;   transform:scale(.6)}
+  30% {opacity:1;   transform:scale(1.1)}
+  100%{opacity:0;   transform:scale(1.25)}   /* 单程放大渐隐，无回弹 */
+}
+/* 未解锁点击：红色边框闪烁拒绝（2026-10-22：margin 轻晃就是「晃动依然在」的元凶 ——
+   未解锁时每次点击都触发 _takeoffShake。改为零位移红闪，语义不变、键不再动） */
+.takeoff.shake{animation:pk-to-refuse .34s ease}
+.takeoff.btn-down.shake{animation:none}
+@keyframes pk-to-refuse{
+  0%,100%{border-color:var(--t-border)}   /* 静止边框已对齐爬升键（t-border），回落色同步 */
+  25%,65%{border-color:rgba(255,107,107,.95)}
+}
+
+/* ---- 横屏覆盖：机身姿态左边空白带，顶边锚定向下扩 ----
+   2026-10-21 真机反馈「没按下时是歪的」：translate(-50%,0) 百分比+0 混合在真机
+   webview 上渲染不可靠 → 改为显式 left（空白带中点 − 0.6vw − 半径 0.40 attW，
+   与原圆心完全等价）、transform 彻底归零，按下只 translateY —— 无任何合成。
+   left = 空白带中点 − 0.6vw；top = 原键顶（att 中心 + 4.5vh − 0.36 attW）；直径 80% attW */
+.page.land .land-col-r{position:relative}
+.page.land .takeoff{
+  /* 2026-10-23 缩小：直径与横屏其它键同档（11vh，最窄屏 9vw 兜底）——
+     原 0.8×att 在 812×375 ≈ 60px，比横屏 11vh 键（≈41px）大出半档。
+     圆心保持原位：原 top = 0.14att + 4.3vh、半径 0.40att ⇒ 圆心 = 0.54att + 4.3vh */
+  --tkd:min(11vh, 9vw);
+  --atts:min(20vh, 21vw);
+  left:calc((100% - var(--atts)) / 2 - 0.6vw - var(--tkd) / 2);
+  top:calc(var(--atts) * 0.54 + 4.3vh - var(--tkd) / 2);
+  bottom:auto;
+  width:var(--tkd);
+  height:var(--tkd);
+  transform:none;
+  /* 边框不另设：同横屏爬升键一样沿用竖屏 3rpx（质感严格参考爬升键，
+     爬升键横屏没有覆盖边框 → 起飞键也不覆盖）；
+   键帽厚度/按压阴影已并入上方横屏键帽组（.page.land .takeoff） */
+  /* 2026-10-23 表现效果严格同竖屏：em 基准取竖屏 24rpx 的绝对值 12px
+     （竖屏 1rpx=0.5px）——条纹周期/内渗光/扫光带全部 em 计量，字号对齐后
+     这些层与竖屏逐像素一致；横屏 rpx 按长边换算（1rpx≈1.083px）不能用 */
+  font-size:12px;
+}
+.page.land .takeoff .ico{
+  /* 图标同步竖屏绝对值（40rpx = 20px），不再按键径缩放 */
+  width:20px;
+  height:20px;
+}
+/* 横屏 fx 重标定规则统一放在文件末尾「横屏 fx 覆盖」段（必须晚于个性形态层，
+   否则同特异性被基础规则反压——2026-10-23 彗星/光球骑轨失效的教训） */
+
+/* ===========================================================================
+   个性形态层（2026-10-22 定稿落地）：三主题 × 三种表现形式
+   ---------------------------------------------------------------------------
+   预览定稿：design/theme-fx-matrix.html（同屏三列对照）。骨架五层不动
+   （键面+边框+内渗光+扫光+外环），形态按主题性格换，节奏档位统一 0.6s/1.1s：
+     T1 钢穹 · 稳流 = 各键既有规则（基线，上文），无需覆盖
+     T2 紫电 · 脉冲 = 无条纹；亮线沿方向扫描 + 内光心跳冲峰 + 边框闪络 + 粗环快收
+     T3 极昼 · 粒子 = 无条纹；光点沿方向异速上漂/下落 + 柔光内溢 + 轻环
+   方向语义不变：内收/上涨=按住出力，外扩=一次性动作发出。
+   实现载体（2026-10-22 真机校正）：爬升/下降/特技沿用伪元素（近矩形 + 5px 圆角，
+   overflow:hidden 裁得住）；起飞键是 50% 圆键 —— overflow:hidden 裁不住 transform
+   子节点（真机实测扫描线越圈跑），故其一切运动层（扫描/液面/扫光带）一律走
+   **background-position 动画**（背景天然裁进键体；busy 光斑下扫同机制已验证）。
+   to-halo 环为 transform 缩放但位于键外、无需裁剪；收拢终点避开键轮廓（80% 前淡尽）。
+   T3 按住底为浅色（acc/info hold-bg 均浅）：文字/图标统一换 --t-text 深色。
+   =========================================================================== */
+
+/* ---------- 起飞键 · 表现节点基座（默认全部隐形，由主题规则点亮） ---------- */
+.to-halo{
+  position:absolute; inset:-14rpx; border-radius:50%;
+  pointer-events:none; opacity:0; transition:opacity .4s ease;
+}
+.takeoff.btn-down .to-halo,
+.takeoff.busy .to-halo{opacity:1}
+/* T1 稳流基线：双环内收（h3 留给 T2 三环快收用，T1/T3 不点亮恒隐形） */
+.takeoff.btn-down .to-halo .h1,
+.takeoff.busy .to-halo .h1{animation:pk-halo-in 1.1s ease-out infinite}
+.takeoff.btn-down .to-halo .h2,
+.takeoff.busy .to-halo .h2{animation:pk-halo-in 1.1s ease-out infinite; animation-delay:.55s}
+.to-halo .h1,.to-halo .h2,.to-halo .h3{
+  position:absolute; inset:0; border-radius:50%; opacity:0;
+  border:2rpx solid var(--t-acc-charge);
+  box-shadow:0 0 6rpx var(--t-acc-charge), inset 0 0 4rpx var(--t-acc-charge);
+  /* 基态 = 各形态 keyframes 的起始 scale：松手摘动画时环回到「最大」而非「最小」，
+     视觉是向外扩着淡出（自然衰减），不是向内跳一下（果冻感来源之二） */
+  transform:scale(1.34);
+}
+.page.theme-2 .to-halo .h1,.page.theme-2 .to-halo .h2,.page.theme-2 .to-halo .h3{transform:scale(1.12)}
+.page.theme-3 .to-halo .h1,.page.theme-3 .to-halo .h2,.page.theme-3 .to-halo .h3{transform:scale(1.28)}
+/* T2 扫描线：background 载体（细亮带 0.9em，初始停在键外下方）
+   —— 50% 圆键裁不住 transform 子节点，背景动画天然裁进键体 */
+/* fx-scan = 键面动效通载体（可淡出覆盖层）：T1=条纹流（基线） / T2=扫描线 / T3=光斑。
+   松手时按 opacity 淡出，键面本体无瞬跳；主题差异用 .page.theme-N 基础规则换背景 */
+.fx-scan{
+  position:absolute; inset:0; border-radius:50%; pointer-events:none; opacity:0;
+  background-image:repeating-linear-gradient(0deg,var(--t-acc-hold-stripe) 0 .04em,transparent .04em .3em);
+  background-position:0 0;
+  transition:opacity .25s ease;
+}
+.takeoff.btn-down .fx-scan{opacity:1; animation:pk-stripe-flow .6s linear infinite}
+/* T3 液面：background 载体（图高 = 2× 键高 7.34em，下半是填充+液面亮线） */
+/* T3 粒子：**向按键汇聚** —— fx-fill 撑到键外一圈（inset:-26rpx，无裁切限制），
+   6 颗光点从六个方位（上/右上/右下/下/左下/左上，半径约 78rpx）向键心飞，
+   到达时缩小熄灭 = 能量被吸进键里；错峰 0.2s 连续成流。
+   每颗两动画（位移 + 自身淡入淡出）各配一对 delay；基态 transform=起始方位，
+   松手摘动画时粒子向外弹回淡出（自然衰减，不内跳） */
+.fx-fill{
+  position:absolute; inset:-26rpx; pointer-events:none; opacity:0;
+  transition:opacity .3s ease;
+}
+.fx-fill .p1,.fx-fill .p2,.fx-fill .p3,
+.fx-fill .p4,.fx-fill .p5,.fx-fill .p6{
+  position:absolute; left:50%; top:50%; border-radius:50%; opacity:0;
+  transform:translate(var(--dx),var(--dy)) scale(1);
+}
+/* 粒子动画只属于 T3（基态绑定导致过「三主题全出粒子」） */
+.page.theme-3 .fx-fill .p1,.page.theme-3 .fx-fill .p2,
+.page.theme-3 .fx-fill .p3,.page.theme-3 .fx-fill .p4,
+.page.theme-3 .fx-fill .p5,.page.theme-3 .fx-fill .p6{
+  animation:pk-p-in .85s linear infinite, pk-p-fade .85s linear infinite;
+}
+/* 错峰 delay 必须写在上面 animation 简写之后、且同特异性——
+   2026-10-23：简写会把低特异性规则里的 animation-delay 重置为 0，
+   导致 6 颗粒子全部同时出发（错峰形同虚设） */
+.page.theme-3 .fx-fill .p2{animation-delay:.14s, .14s}
+.page.theme-3 .fx-fill .p3{animation-delay:.28s, .28s}
+.page.theme-3 .fx-fill .p4{animation-delay:.42s, .42s}
+.page.theme-3 .fx-fill .p5{animation-delay:.56s, .56s}
+.page.theme-3 .fx-fill .p6{animation-delay:.70s, .70s}
+.fx-fill .p1{width:10rpx; height:10rpx; margin:-5rpx;  background:#2c62b8; box-shadow:0 0 8rpx rgba(44,98,184,.9);
+  --dx:0rpx;   --dy:-78rpx}
+.fx-fill .p2{width:16rpx; height:16rpx; margin:-8rpx;  background:#5a8ed6; box-shadow:0 0 10rpx rgba(90,142,214,.9);
+  --dx:66rpx;  --dy:-40rpx}
+.fx-fill .p3{width:8rpx;  height:8rpx;  margin:-4rpx;  background:#1c4a94; box-shadow:0 0 6rpx rgba(28,74,148,.9);
+  --dx:66rpx;  --dy:40rpx}
+.fx-fill .p4{width:13rpx; height:13rpx; margin:-6.5rpx; background:#7aa8e8; box-shadow:0 0 10rpx rgba(122,168,232,.9);
+  --dx:0rpx;   --dy:78rpx}
+.fx-fill .p5{width:17rpx; height:17rpx; margin:-8.5rpx; background:#2456b3; box-shadow:0 0 12rpx rgba(36,86,179,.9);
+  --dx:-66rpx; --dy:40rpx}
+.fx-fill .p6{width:9rpx;  height:9rpx;  margin:-4.5rpx; background:#4a7ec8; box-shadow:0 0 8rpx rgba(74,126,200,.9);
+  --dx:-66rpx; --dy:-40rpx}
+@keyframes pk-p-in{
+  0%  {transform:translate(var(--dx), var(--dy)) scale(1);   }
+  100%{transform:translate(0, 0)                  scale(.25); }
+}
+@keyframes pk-p-fade{
+  0%  {opacity:0}
+  15% {opacity:1}
+  80% {opacity:.9}
+  100%{opacity:0}
+}
+
+/* ---------- 起飞键 · 三主题形态 ---------- */
+/* T2 脉冲：键面动效换扫描线；内光心跳；边框闪络；三道粗环快收 */
+.page.theme-2 .fx-scan{
+  background-image:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.38) 40%,rgba(255,255,255,.38) 60%,rgba(255,255,255,0));
+  background-repeat:no-repeat;
+  background-size:100% 1.6em;   /* 亮核≈2px：对齐预览观感（0.9em 时核心仅 0.4px 读不出） */
+  background-position:0 4.6em;
+}
+.page.theme-2 .takeoff.btn-down{
+  animation:pk-surge-border .6s cubic-bezier(.16,.9,.2,1) infinite;
+}
+.page.theme-2 .takeoff.btn-down .fx-scan{
+  opacity:1;
+  animation:pk-hold-scan .6s cubic-bezier(.3,.6,.4,1) infinite;
+}
+.page.theme-2 .takeoff.btn-down .to-charge{
+  animation:pk-suck-pulse .6s cubic-bezier(.16,.9,.2,1) infinite;
+}
+/* T1 流光签名：h4 彗星点绕键环行（键外 transform 动画——键外无裁切限制，可放开做）。
+   T2/T3 用不到 h4，显式隐藏。h4 基态透明，按住时由 keyframes 接管 opacity */
+.to-halo .h4{position:absolute; opacity:0}
+.takeoff.btn-down .to-halo .h4,
+.takeoff.busy .to-halo .h4{
+  inset:auto; left:50%; top:-7rpx; width:14rpx; height:14rpx; margin:0 0 0 -7rpx;
+  border:none; border-radius:50%;
+  background:radial-gradient(circle,#d6e7ff 0%,rgba(130,175,255,.95) 45%,rgba(130,175,255,0) 72%);
+  box-shadow:0 0 16rpx 4rpx var(--t-acc-charge);
+  transform-origin:7rpx 58rpx;   /* 圆心=halo 盒中心 → 点恰好骑在环轨上 */
+  animation:pk-orbit 1.5s linear infinite;
+}
+.page.theme-2 .takeoff.btn-down .to-halo .h4,
+.page.theme-3 .takeoff.btn-down .to-halo .h4{display:none}
+/* T1 追加环绕小光球：o1 骑环反向慢转 / o2 外轨更慢 —— 与 h4 彗星构成三球环绕 */
+.to-halo .o1,.to-halo .o2{position:absolute; opacity:0}
+.takeoff.btn-down .to-halo .o1,
+.takeoff.busy .to-halo .o1{
+  inset:auto; left:50%; top:-5rpx; width:10rpx; height:10rpx; margin:0 0 0 -5rpx;
+  border:none; border-radius:50%;
+  background:radial-gradient(circle,#eaf3ff 0%,rgba(160,200,255,.9) 45%,rgba(160,200,255,0) 72%);
+  box-shadow:0 0 10rpx 2rpx var(--t-acc-charge);
+  transform-origin:5rpx 58rpx;
+  animation:pk-orbit-rev 2.2s linear infinite;
+}
+.takeoff.btn-down .to-halo .o2,
+.takeoff.busy .to-halo .o2{
+  inset:auto; left:50%; top:-16rpx; width:8rpx; height:8rpx; margin:0 0 0 -4rpx;
+  border:none; border-radius:50%;
+  background:radial-gradient(circle,#cfe4ff 0%,rgba(140,185,255,.85) 45%,rgba(140,185,255,0) 72%);
+  box-shadow:0 0 10rpx 2rpx var(--t-acc-charge);
+  transform-origin:4rpx 74rpx;   /* 外轨半径 70rpx：轨道在 halo 盒外 */
+  animation:pk-orbit-rev 2.8s linear infinite;
+}
+.page.theme-2 .takeoff.btn-down .to-halo .o1,
+.page.theme-2 .takeoff.btn-down .to-halo .o2,
+.page.theme-3 .takeoff.btn-down .to-halo .o1,
+.page.theme-3 .takeoff.btn-down .to-halo .o2{display:none}
+@keyframes pk-orbit-rev{
+  0%  {transform:rotate(360deg); opacity:0}
+  8%  {opacity:1}
+  92% {opacity:1}
+  100%{transform:rotate(0deg);   opacity:0}
+}
+@keyframes pk-orbit{
+  0%  {transform:rotate(0deg);   opacity:0}
+  8%  {opacity:1}
+  92% {opacity:1}
+  100%{transform:rotate(360deg); opacity:0}
+}
+
+/* T2 脉冲签名：三道冲击环爆到 1.9 倍（加粗提速，键外爆开） */
+.page.theme-2 .takeoff.btn-down .to-halo .h1,
+.page.theme-2 .takeoff.busy .to-halo .h1{animation:pk-halo-surge .5s cubic-bezier(.16,.9,.2,1) infinite}
+.page.theme-2 .takeoff.btn-down .to-halo .h2,
+.page.theme-2 .takeoff.busy .to-halo .h2{animation:pk-halo-surge .5s cubic-bezier(.16,.9,.2,1) infinite; animation-delay:.16s}
+.page.theme-2 .takeoff.btn-down .to-halo .h3,
+.page.theme-2 .takeoff.busy .to-halo .h3{animation:pk-halo-surge .5s cubic-bezier(.16,.9,.2,1) infinite; animation-delay:.32s}
+.page.theme-2 .takeoff.btn-down .to-halo .h1,
+.page.theme-2 .takeoff.btn-down .to-halo .h2,
+.page.theme-2 .takeoff.btn-down .to-halo .h3{
+  border-width:4rpx;
+  box-shadow:0 0 12rpx var(--t-acc-charge), inset 0 0 6rpx var(--t-acc-charge);
+}
+/* T2 busy 外扩环：粗环快爆（第二环白细环维持原样作层次） */
+.page.theme-2 .takeoff.busy .fx-ring{
+  border-width:6rpx; box-shadow:0 0 12rpx var(--t-acc-charge);
+  animation:pk-fx-surge .5s cubic-bezier(.16,.9,.2,1);
+}
+/* T3 粒子形态不用键面流层：清空 fx-scan 基线（否则回落成 T1 条纹） */
+.page.theme-3 .fx-scan{background-image:none}
+.page.theme-3 .takeoff.btn-down{
+  color:var(--t-text);
+  animation:pk-charge-swell 1.1s ease-in-out infinite;
+}
+.page.theme-3 .takeoff.btn-down .to-charge{
+  animation:pk-suck-soft 1.1s ease-in-out infinite;
+}
+.page.theme-3 .takeoff.btn-down .to-halo .h1,
+.page.theme-3 .takeoff.busy .to-halo .h1{animation:pk-halo-soft 1.1s ease-in-out infinite}
+.page.theme-3 .takeoff.btn-down .to-halo .h2,
+.page.theme-3 .takeoff.busy .to-halo .h2{animation:pk-halo-soft 1.1s ease-in-out infinite; animation-delay:.55s}
+.page.theme-3 .takeoff.btn-down .fx-fill,
+.page.theme-3 .takeoff.busy .fx-fill{
+  opacity:1;
+}
+.page.theme-3 .takeoff.busy .fx-ring{
+  border-width:2rpx; animation:pk-fx-out .7s ease-out;
+}
+
+/* ---------- 爬升/下降键 · T2 脉冲形态（伪元素换表现，真机已验证载体） ---------- */
+/* 内光：心跳冲峰；扫光层改亮线沿方向扫描；T2 按住底仍深色，文字保持反白 */
+.page.theme-2 .climb.on::before{animation:pk-suck-pulse .6s cubic-bezier(.16,.9,.2,1) infinite}
+.page.theme-2 .descend.on::before{animation:pk-suck-pulse-info .6s cubic-bezier(.16,.9,.2,1) infinite}
+.page.theme-2 .climb.on::after,
+.page.theme-2 .descend.on::after{
+  left:0; right:0; width:auto; top:0; height:18%;
+  transform:translateY(130%) rotate(0deg);
+  background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.4) 70%,rgba(255,255,255,0));
+}
+.page.theme-2 .climb.on::after{animation:pk-scan-up .6s cubic-bezier(.3,.6,.4,1) infinite}
+.page.theme-2 .descend.on::after{animation:pk-scan-down .6s cubic-bezier(.3,.6,.4,1) infinite}
+
+/* ---------- 爬升/下降键 · T3 粒子形态 ---------- */
+/* 光点沿方向上漂/下落（acc=蓝族 / info=青族），柔光内溢保留；浅底换深色文字 */
+.page.theme-3 .climb.on,.page.theme-3 .descend.on{color:var(--t-text)}
+.page.theme-3 .climb.on::before{animation:pk-suck-soft 1.1s ease-in-out infinite}
+.page.theme-3 .descend.on::before{animation:pk-suck-soft-info 1.1s ease-in-out infinite}
+.page.theme-3 .climb.on::after,
+.page.theme-3 .descend.on::after{
+  left:0; right:0; width:auto; top:0; bottom:0; height:auto;
+  transform:none;
+  background-image:
+    radial-gradient(circle, rgba(36,86,179,.8)  0%, rgba(36,86,179,0) 72%),
+    radial-gradient(circle, rgba(88,140,224,.75) 0%, rgba(88,140,224,0) 72%),
+    radial-gradient(circle, rgba(20,60,150,.65)  0%, rgba(20,60,150,0) 72%),
+    radial-gradient(circle, rgba(130,176,238,.85) 0%, rgba(130,176,238,0) 72%);
+  background-repeat:no-repeat;
+  background-size:6rpx 6rpx, 9rpx 9rpx, 5rpx 5rpx, 8rpx 8rpx;
+  animation:pk-dots-in .9s linear infinite;
+}
+.page.theme-3 .descend.on::after{
+  background-image:
+    radial-gradient(circle, rgba(10,124,150,.8)  0%, rgba(10,124,150,0) 72%),
+    radial-gradient(circle, rgba(60,180,205,.75) 0%, rgba(60,180,205,0) 72%),
+    radial-gradient(circle, rgba(6,80,100,.65)   0%, rgba(6,80,100,0) 72%),
+    radial-gradient(circle, rgba(120,210,228,.85) 0%, rgba(120,210,228,0) 72%);
+}
+
+/* ---------- 特技键 · T2 电弧闪络 / T3 光晕晕开（::before/::after 换表现） ---------- */
+/* T2：键面白闪两下（pk-flash），三层光带隐去；键体 pk-edge 边框电感保留 */
+.page.theme-2 .act.busy::before{
+  background:rgba(255,255,255,.9);
+  animation:pk-flash .6s linear;
+}
+.page.theme-2 .act.busy::after{display:none}
+.page.theme-2 .arm.burst .fx-ring,
+.page.theme-2 .act.busy .fx-ring{
+  border-width:5rpx; box-shadow:0 0 9rpx var(--t-acc-charge);
+  animation:pk-fx-surge .5s cubic-bezier(.16,.9,.2,1);
+}
+/* T3：中心光斑晕开（radial 核 + scale 扩散），柔环缓出 */
+.page.theme-3 .act.busy::before{
+  background:radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.75),rgba(255,255,255,0) 72%);
+  animation:pk-bloom .6s ease-out;
+}
+.page.theme-3 .act.busy::after{display:none}
+.page.theme-3 .arm.burst .fx-ring,
+.page.theme-3 .act.busy .fx-ring{
+  border-width:2rpx; animation:pk-fx-out .7s ease-out;
+}
+
+/* ---------- 形态层 keyframes（命名与预览页 theme-fx-matrix.html 一致） ---------- */
+/* 起飞键按住层专用：全部走 background-position（键高 88rpx = 3.67em，
+   起终点都在键外，首尾不可见、循环无缝；背景天然裁进键体，真机不越圈） */
+@keyframes pk-hold-border{
+  0%,100%{border-color:var(--t-acc-hold)}
+  50%    {border-color:var(--t-acc-hold-hi)}
+}
+@keyframes pk-stripe-flow{
+  0%  {background-position:0 0}
+  100%{background-position:0 -.6em}   /* 条纹周期 .3em 的两倍，循环无缝 */
+}
+@keyframes pk-hold-sweep{
+  0%  {background-position:0 4.2em}
+  100%{background-position:0 -1.8em}
+}
+@keyframes pk-hold-scan{
+  0%  {background-position:0 4.6em}
+  100%{background-position:0 -1.7em}
+}
+/* 爬升/下降键粒子：四点从四角向键心汇聚（到达点落在中心柔光里，循环接缝被光盖住） */
+@keyframes pk-dots-in{
+  0%  {background-position:22% -0.8em, 80% -0.5em, 12% 4.2em, 88% 4.6em}
+  100%{background-position:45% 1.7em, 55% 1.9em, 47% 1.8em, 53% 2em}
+}
+@keyframes pk-scan-up{
+  0%  {transform:translateY(130%); opacity:0}
+  14% {opacity:1}
+  100%{transform:translateY(-130%); opacity:0}
+}
+@keyframes pk-scan-down{
+  0%  {transform:translateY(-130%); opacity:0}
+  14% {opacity:1}
+  100%{transform:translateY(130%); opacity:0}
+}
+@keyframes pk-suck-pulse{
+  0%  {box-shadow:inset 0 0 0 .03em var(--t-acc-suck-a), inset 0 0 .5em var(--t-acc-suck-b)}
+  16% {box-shadow:inset 0 0 0 .07em var(--t-acc-suck-hi), inset 0 0 .42em var(--t-acc-suck-md)}
+  100%{box-shadow:inset 0 0 0 .03em var(--t-acc-suck-a), inset 0 0 .5em var(--t-acc-suck-b)}
+}
+@keyframes pk-suck-pulse-info{
+  0%  {box-shadow:inset 0 0 0 .03em var(--t-info-suck-a), inset 0 0 .5em var(--t-info-suck-b)}
+  16% {box-shadow:inset 0 0 0 .07em var(--t-info-suck-hi), inset 0 0 .42em var(--t-info-suck-md)}
+  100%{box-shadow:inset 0 0 0 .03em var(--t-info-suck-a), inset 0 0 .5em var(--t-info-suck-b)}
+}
+@keyframes pk-suck-soft{
+  0%,100%{box-shadow:inset 0 0 0 .03em var(--t-acc-suck-a), inset 0 0 1.4em var(--t-acc-suck-b)}
+  50%    {box-shadow:inset 0 0 0 .05em var(--t-acc-suck-hi), inset 0 0 .7em var(--t-acc-suck-md)}
+}
+@keyframes pk-suck-soft-info{
+  0%,100%{box-shadow:inset 0 0 0 .03em var(--t-info-suck-a), inset 0 0 1.4em var(--t-info-suck-b)}
+  50%    {box-shadow:inset 0 0 0 .05em var(--t-info-suck-hi), inset 0 0 .7em var(--t-info-suck-md)}
+}
+@keyframes pk-surge-border{
+  0%,100%{border-color:var(--t-acc-hold)}
+  16%    {border-color:var(--t-acc-hold-hi)}
+}
+@keyframes pk-charge-swell{
+  0%,100%{border-color:var(--t-acc-hold)}
+  50%    {border-color:var(--t-acc-hold-hi)}
+}
+/* 三条 pk-halo-* 收拢环：环盒比键大 14rpx，收拢终点始终在键轮廓外
+   （真机「晃」的根因是裁切逃逸已修，非环本身）——淡出放回 88-92%，
+   强度对齐预览；光晕已减半不触键沿 */
+@keyframes pk-halo-in{
+  0%  {transform:scale(1.34); opacity:0}
+  28% {opacity:.9}
+  90% {opacity:0}
+  100%{transform:scale(1.04); opacity:0}
+}
+@keyframes pk-halo-surge{
+  0%  {transform:scale(1.12); opacity:0}
+  16% {opacity:1}
+  100%{transform:scale(1.9);  opacity:0}
+}
+@keyframes pk-halo-soft{
+  0%  {transform:scale(1.28); opacity:0}
+  30% {opacity:.55}
+  88% {opacity:0}
+  100%{transform:scale(1.05); opacity:0}
+}
+@keyframes pk-flash{
+  0%,100%{opacity:0}
+  10%{opacity:.55}
+  20%{opacity:0}
+  32%{opacity:.4}
+  44%,100%{opacity:0}
+}
+@keyframes pk-fx-surge{
+  0%  {transform:scale(1);    opacity:.95}
+  100%{transform:scale(1.65); opacity:0}
+}
+@keyframes pk-bloom{
+  0%  {transform:scale(.35); opacity:.9}
+  100%{transform:scale(1.6); opacity:0}
+}
+
+/* ===========================================================================
+   三主题「动态背景」落地（2026-10-22 · 自 design/persona-bg-preview.html）
+   结构：.page 根下加一个 .bgfx 底层节点（fixed inset:0 z-index:-1，
+   pointer-events:none），主题节点 wx:if={{persona===N}} 只挂当前主题。
+   z-index:-1 的含义：负层画在本层内容之下、page 底色之上——内容零改动、
+   零遮挡（2026-10-23 起 boot 幕布已移除，无遮挡层）。
+   尺寸口径：纵向位置/高度一律 %（相对视口，横竖屏同一段 CSS 通用——
+   横屏 .land 无需任何覆盖），blur/线宽/位移等小尺寸保留 px（装饰层
+   不需要跟随字号，也不占布局）。
+   动画纪律：全部 transform/opacity（合成器通道）；blur 是静态滤镜不参与动画。
+   =========================================================================== */
+.bgfx{
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  z-index: -1; pointer-events: none; overflow: hidden;
+}
+.page.theme-1 .bgfx{background:linear-gradient(180deg,#101f34 0%,#0a1524 52%,#060c16 100%)}
+.page.theme-2 .bgfx{background:linear-gradient(180deg,#120f26 0%,#0c0a1d 55%,#070613 100%)}
+.page.theme-3 .bgfx{background:linear-gradient(180deg,#f2f6fb 0%,#e2e9f3 46%,#d0d9e7 100%)}
+
+/* ---------- T1 深海 · 霓虹光河（三色：上青 / 中紫 / 下蓝，只要光晕层） ---------- */
+.sea-glow{
+  position: absolute; left: -10%; width: 120%; top: 8%; height: 74%;
+  background: radial-gradient(55% 65% at 46% 38%,
+    rgba(70,145,240,.18), rgba(30,80,180,.07) 58%, transparent 76%);
+  animation: sea-breathe 11s ease-in-out infinite alternate;
+}
+@keyframes sea-breathe{0%{opacity:.55}100%{opacity:1}}
+.sea-b{
+  position: absolute; left: -10%; right: -10%; height: 53vh;
+  filter: blur(24px);
+}
+.sea-b.sb1{top:4%; --rot:-3deg;  animation:sea-sway1 15s ease-in-out infinite alternate}
+.sea-b.sb2{top:32%;--rot:2.4deg; opacity:.8;
+  animation:sea-sway2 21s ease-in-out infinite alternate-reverse}
+.sea-b.sb3{top:59%;--rot:-2deg;  opacity:.75;
+  animation:sea-sway1 27s ease-in-out infinite alternate}
+/* 彩雾椭圆：相邻重叠约 1/3，blur 融成一条连续蜿蜒的光河 */
+.sea-b .si{
+  position: absolute; width: 23%; border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%,
+    rgba(70,200,255,.52) 0%, rgba(50,150,255,.24) 45%, transparent 74%);
+  animation: sea-strip var(--d) ease-in-out infinite alternate;
+  animation-delay: var(--dl);
+}
+.sea-b.sb2 .si{background:radial-gradient(50% 50% at 50% 50%,
+  rgba(155,115,255,.55) 0%, rgba(115,85,245,.28) 45%, transparent 74%)}
+.sea-b.sb3 .si{background:radial-gradient(50% 50% at 50% 50%,
+  rgba(60,130,255,.42) 0%, rgba(40,100,230,.19) 45%, transparent 74%)}
+@keyframes sea-strip{
+  0%  {transform:translateX(0)     scale(1);    opacity:.65}
+  50% {transform:translateX(18px)  scale(1.10); opacity:1}
+  100%{transform:translateX(-12px) scale(.96);  opacity:.72}}
+@keyframes sea-sway1{
+  0%  {transform:translateX(-18px) skewX(-3deg)   rotate(var(--rot,0deg))}
+  100%{transform:translateX(18px)  skewX(2deg)    rotate(var(--rot,0deg))}}
+@keyframes sea-sway2{
+  0%  {transform:translateX(14px)  skewX(2.4deg)  rotate(var(--rot,0deg))}
+  100%{transform:translateX(-16px) skewX(-3.4deg) rotate(var(--rot,0deg))}}
+/* 预览页 320px 带高的比例换算：height/top 用带高百分比，横竖屏都成立 */
+.sea-b .si:nth-child(1) {left:-2%; top:22%;   height:56%;--d:4.2s;--dl:0s}
+.sea-b .si:nth-child(2) {left:8%;  top:12.5%; height:69%;--d:3.8s;--dl:.5s}
+.sea-b .si:nth-child(3) {left:18%; top:5.5%;  height:78%;--d:4.6s;--dl:1.1s}
+.sea-b .si:nth-child(4) {left:28%; top:9.5%;  height:73%;--d:4.0s;--dl:.3s}
+.sea-b .si:nth-child(5) {left:38%; top:17%;   height:66%;--d:4.4s;--dl:.9s}
+.sea-b .si:nth-child(6) {left:48%; top:25%;   height:58%;--d:3.6s;--dl:1.5s}
+.sea-b .si:nth-child(7) {left:58%; top:19%;   height:67%;--d:4.8s;--dl:.6s}
+.sea-b .si:nth-child(8) {left:68%; top:11%;   height:77%;--d:4.1s;--dl:1.2s}
+.sea-b .si:nth-child(9) {left:78%; top:15.5%; height:69%;--d:4.5s;--dl:.8s}
+.sea-b .si:nth-child(10){left:87%; top:23.5%; height:58%;--d:3.9s;--dl:1.4s}
+/* 水面微光 + 海洋雪 + 气泡（辅层） */
+.surface{
+  position: absolute; top: 0; left: -20%; width: 140%; height: 46px;
+  background: linear-gradient(90deg, transparent 0%, rgba(160,210,255,.14) 30%,
+    rgba(200,235,255,.22) 50%, rgba(160,210,255,.14) 70%, transparent 100%);
+  animation: surface-run 13s ease-in-out infinite alternate;
+}
+@keyframes surface-run{0%{transform:translateX(-5%)}100%{transform:translateX(5%)}}
+.snow{
+  position: absolute; top: -8px; border-radius: 50%;
+  background: rgba(190,220,255,.42);
+  animation: snow-fall var(--d) linear infinite; animation-delay: var(--dl,0s);
+}
+.snow.s1{left:24%;width:2px;height:2px;--d:16s;--dl:0s}
+.snow.s2{left:52%;width:2px;height:2px;--d:19s;--dl:5s}
+.snow.s3{left:70%;width:3px;height:3px;--d:17s;--dl:9s}
+.snow.s4{left:86%;width:2px;height:2px;--d:20s;--dl:12s}
+@keyframes snow-fall{
+  0%  {transform:translate(0,0);opacity:0}
+  10% {opacity:.55}
+  90% {opacity:.35}
+  100%{transform:translate(10px,105vh);opacity:0}}
+.bub{
+  position: absolute; bottom: -16px; border-radius: 50%;
+  border: 1px solid rgba(150,200,255,.35);
+  background: radial-gradient(circle at 35% 30%,
+    rgba(200,230,255,.30), rgba(130,180,255,.06) 70%);
+  animation: bub-rise var(--d) linear infinite; animation-delay: var(--dl,0s);
+}
+.bub.b1{left:16%;width:9px; height:9px; --d:9s; --dl:0s}
+.bub.b2{left:38%;width:6px; height:6px; --d:12s;--dl:3s}
+.bub.b3{left:57%;width:11px;height:11px;--d:10s;--dl:6s}
+.bub.b4{left:76%;width:7px; height:7px; --d:13s;--dl:1.5s}
+.bub.b5{left:88%;width:5px; height:5px; --d:11s;--dl:7s}
+@keyframes bub-rise{
+  0%  {transform:translate(0,0);opacity:0}
+  10% {opacity:.7}
+  30% {transform:translate(7px,-32vh)}
+  60% {transform:translate(-7px,-64vh)}
+  90% {opacity:.5}
+  100%{transform:translate(4px,-95vh);opacity:0}}
+
+/* ---------- T2 北极极光 · 整片光海（帘条扩大至消失，三团大光雾） ---------- */
+.aurglow{
+  position: absolute; top: -10vh; left: -14%; width: 128%; height: 135vh;
+  background: radial-gradient(85% 72% at 50% 30%,
+    rgba(90,60,220,.28), rgba(60,40,180,.11) 60%, transparent 85%);
+}
+.aur-veil{
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  /* 全屏兜底纱幕：极光余晖铺到四角（静态，无动画） */
+  background:
+    radial-gradient(60% 45% at 80% 85%, rgba(45,140,150,.28), transparent 78%),
+    radial-gradient(40% 30% at 12% 92%, rgba(45,120,150,.16), transparent 75%),
+    linear-gradient(180deg, rgba(75,50,180,.24) 0%, rgba(60,45,160,.18) 45%,
+      rgba(50,70,160,.21) 75%, rgba(45,95,145,.26) 100%);
+}
+.aur-w{position: absolute; filter: blur(46px)}
+.aur-w1{left:-25%; top:-22%; width:150%; height:82%;
+  background: radial-gradient(50% 55% at 50% 45%,
+    rgba(105,65,225,.32), rgba(80,50,200,.15) 55%, transparent 78%);
+  animation: aur-drift1 24s ease-in-out infinite alternate}
+.aur-w2{left:-20%; top:40%; width:140%; height:60%;
+  background: radial-gradient(55% 60% at 50% 52%,
+    rgba(55,185,175,.28), rgba(45,150,160,.15) 55%, transparent 80%);
+  animation: aur-drift2 30s ease-in-out infinite alternate-reverse}
+.aur-w3{left:-15%; top:-12%; width:130%; height:56%;
+  background: radial-gradient(50% 60% at 42% 42%,
+    rgba(150,90,235,.18), transparent 75%);
+  animation: aur-drift1 36s ease-in-out infinite alternate-reverse}
+@keyframes aur-drift1{
+  0%  {transform:translate(-26px,-12px) scale(1)    rotate(-2deg)}
+  100%{transform:translate(26px, 14px)  scale(1.08) rotate(2deg)}}
+@keyframes aur-drift2{
+  0%  {transform:translateX(32px)  skewX(-2deg)}
+  100%{transform:translateX(-32px) skewX(2deg)}}
+.stars .st{
+  position: absolute; width: 2px; height: 2px; border-radius: 50%;
+  background: rgba(220,215,255,.55);
+  animation: aur-tw 3.4s ease-in-out infinite;
+}
+.stars .st:nth-child(1){left:12%;top:8%}
+.stars .st:nth-child(2){left:58%;top:5%; animation-delay:1.2s}
+.stars .st:nth-child(3){left:88%;top:10%;animation-delay:2.1s}
+.stars .st:nth-child(4){left:34%;top:12%;animation-delay:.6s}
+.stars .st:nth-child(5){left:6%; top:18%; animation-delay:1.7s}
+.stars .st:nth-child(6){left:48%;top:3%;  animation-delay:2.8s}
+.stars .st:nth-child(7){left:72%;top:15%; animation-delay:.3s}
+.stars .st:nth-child(8){left:94%;top:7%;  animation-delay:2.4s}
+.stars .st:nth-child(7){width:3px;height:3px}
+.stars .st:nth-child(5){width:1.5px;height:1.5px}
+@keyframes aur-tw{0%,100%{opacity:.15}50%{opacity:.7}}
+
+/* ---------- T3 冰川：冰面扫光 + 冰晶棱面 ---------- */
+.striation{
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: .12;
+  background: repeating-linear-gradient(115deg,
+    rgba(90,120,170,.5) 0 2px, transparent 2px 84px);
+}
+.glint{
+  position: absolute; width: 3px; height: 3px; border-radius: 50%;
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 0 6px 2px rgba(255,255,255,.65);
+  animation: ice-glint 5.2s ease-in-out infinite;
+}
+.glint.g1{left:26%;top:32%}
+.glint.g2{left:68%;top:56%;animation-delay:2.6s}
+@keyframes ice-glint{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:1;transform:scale(1)}}
+.ice-sweep{
+  position: absolute; top: -20%; left: -30%; width: 60%; height: 140%;
+  background: linear-gradient(105deg, transparent 30%,
+    rgba(255,255,255,.55) 50%, transparent 70%);
+  animation: ice-sweep-kf 9s ease-in-out infinite;
+}
+@keyframes ice-sweep-kf{
+  0%  {transform:translateX(-40%) skewX(-12deg);opacity:0}
+  25% {opacity:.9}
+  60% {opacity:.9}
+  100%{transform:translateX(240%) skewX(-12deg);opacity:0}}
+.facet{
+  position: absolute; bottom: -30px; width: 150px; height: 200px; opacity: .22;
+  /* 双层：体色 + 棱边亮线（右缘一条高光 = 冰棱被光照到的边） */
+  background:
+    linear-gradient(115deg, transparent 56%, rgba(255,255,255,.5) 60%,
+      rgba(255,255,255,.06) 64%, transparent 72%),
+    linear-gradient(160deg, rgba(120,160,220,.55), rgba(160,200,240,.14) 60%, transparent);
+}
+.facet.f1{left:-30px; clip-path:polygon(0 100%,45% 0,100% 78%);
+  animation: facet-drift 14s ease-in-out infinite alternate}
+.facet.f2{right:-40px; clip-path:polygon(20% 100%,70% 6%,100% 100%);
+  animation: facet-drift 18s ease-in-out infinite alternate-reverse}
+.facet.f3{left:38%; bottom:-50px; width:110px; height:150px; opacity:.18;
+  clip-path:polygon(0 100%,55% 8%,90% 100%);
+  animation: facet-drift 16s ease-in-out infinite alternate}
+@keyframes facet-drift{
+  0%  {transform:translateY(0) rotate(0deg)}
+  100%{transform:translateY(-14px) rotate(1.2deg)}}
+.ice-horizon{
+  position: absolute; left: 0; right: 0; bottom: 0; height: 20vh;
+  background: linear-gradient(180deg, transparent,
+    rgba(126,152,196,.30) 70%, rgba(126,152,196,.12));
+}
+
+/* 横屏微调：vh 变小会把光河压扁，加高带身保住存在感（仅 T1 需要补） */
+.page.land .sea-b{height:70vh}
+.page.land .sea-glow{top:4%;height:90%}
+.page.land .sea-b.sb3{top:56%}
+
+/* ===========================================================================
+   横屏 fx 覆盖（2026-10-23 第二版）：表现效果严格同竖屏一致
+   ---------------------------------------------------------------------------
+   第一版按 --tkd 重标定（比例正确但单位是 vh），横屏 1vh=3.75px vs 竖屏
+   1rpx=0.5px，环宽/光晕/粒径全部偏细偏小，用户要求"严格同竖屏保持一致"。
+   第二版改用【竖屏绝对 px】：竖屏 1rpx = 0.5px（375 宽基准），fx 各层
+   全部换算成 px 写死 —— 键径 41px ≈ 竖屏 44px，fx 逐像素等同竖屏观感。
+   必须放在个性形态层之后（同特异性靠后者胜，2026-10-23 骑轨失效的教训）。
+   =========================================================================== */
+.page.land .to-halo{inset:-7px}            /* 竖屏 -14rpx */
+.page.land .fx-fill{inset:-13px}           /* 竖屏 -26rpx */
+/* 粒子：位置/粒径/光晕全部取竖屏 rpx ÷ 2 */
+.page.land .fx-fill .p1{--dx:0px; --dy:-39px; width:5px;   height:5px;   margin:-2.5px;  box-shadow:0 0 4px rgba(44,98,184,.9)}
+.page.land .fx-fill .p2{--dx:33px; --dy:-20px; width:8px;  height:8px;  margin:-4px;    box-shadow:0 0 5px rgba(90,142,214,.9)}
+.page.land .fx-fill .p3{--dx:33px; --dy:20px;  width:4px;  height:4px;  margin:-2px;    box-shadow:0 0 3px rgba(28,74,148,.9)}
+.page.land .fx-fill .p4{--dx:0px; --dy:39px;  width:6.5px; height:6.5px; margin:-3.25px; box-shadow:0 0 5px rgba(122,168,232,.9)}
+.page.land .fx-fill .p5{--dx:-33px; --dy:20px; width:8.5px; height:8.5px; margin:-4.25px; box-shadow:0 0 6px rgba(36,86,179,.9)}
+.page.land .fx-fill .p6{--dx:-33px; --dy:-20px; width:4.5px; height:4.5px; margin:-2.25px; box-shadow:0 0 4px rgba(74,126,200,.9)}
+/* T1 基线双环：border 2rpx→1px、光晕 6rpx/4rpx→3px/2px */
+.page.land .to-halo .h1,.page.land .to-halo .h2,.page.land .to-halo .h3{
+  border-width:1px;
+  box-shadow:0 0 3px var(--t-acc-charge), inset 0 0 2px var(--t-acc-charge);
+}
+/* T2 三环：竖屏 4rpx/12rpx/6rpx → 2px/6px/3px */
+.page.land.theme-2 .takeoff.btn-down .to-halo .h1,
+.page.land.theme-2 .takeoff.btn-down .to-halo .h2,
+.page.land.theme-2 .takeoff.btn-down .to-halo .h3{
+  border-width:2px;
+  box-shadow:0 0 6px var(--t-acc-charge), inset 0 0 3px var(--t-acc-charge);
+}
+/* busy 外扩双环：4rpx→2px、第二环 3rpx→1.5px */
+.page.land .takeoff.busy .fx-ring{border-width:2px}
+.page.land .takeoff.busy .fx-ring2{border-width:1.5px}
+/* T2 busy 粗环：6rpx/12rpx → 3px/6px */
+.page.land.theme-2 .takeoff.busy .fx-ring{
+  border-width:3px; box-shadow:0 0 6px var(--t-acc-charge);
+}
+/* T3 busy 细环：2rpx→1px */
+.page.land.theme-3 .takeoff.busy .fx-ring{border-width:1px}
+/* 尾迹火花：8rpx→4px */
+.page.land .to-spark{width:4px; height:4px; margin-left:-2px}
+/* 彗星/光球骑轨：竖屏 origin(29px) = 键半径 22 + halo 内缩 7 —— 球心恰好落在环上。
+   横屏键径 41.25px（--tkd），环半径 = tkd/2 + 7px，origin 随环走才能保持
+   「彗星骑在环上」的竖屏观感（写死 29px 会浮出环外 1.4px）；粒径/光晕仍是竖屏绝对值 */
+.page.land .takeoff.btn-down .to-halo .h4,
+.page.land .takeoff.busy .to-halo .h4{
+  top:-3.5px; width:7px; height:7px; margin:0 0 0 -3.5px;
+  box-shadow:0 0 8px 2px var(--t-acc-charge);
+  transform-origin:3.5px calc(var(--tkd) / 2 + 7px);
+}
+.page.land .takeoff.btn-down .to-halo .o1,
+.page.land .takeoff.busy .to-halo .o1{
+  top:-2.5px; width:5px; height:5px; margin:0 0 0 -2.5px;
+  box-shadow:0 0 5px 1px var(--t-acc-charge);
+  transform-origin:2.5px calc(var(--tkd) / 2 + 7px);
+}
+.page.land .takeoff.btn-down .to-halo .o2,
+.page.land .takeoff.busy .to-halo .o2{
+  top:-8px; width:4px; height:4px; margin:0 0 0 -2px;
+  box-shadow:0 0 5px 1px var(--t-acc-charge);
+  transform-origin:2px calc(var(--tkd) / 2 + 15px);   /* 外轨 = 环 +8px，同竖屏 74rpx 关系 */
+}
+/* 待机边沿灯带：竖屏 rpx → 横屏绝对 px（÷2，同上方重标定口径 ——
+   横屏 rpx 按长边换算 1rpx≈1.08px，7rpx 带宽会放大到 7.5px，键径才 41px，必须写死） */
+.page.land .to-flow{filter:drop-shadow(0 0 4.5px var(--t-takeoff-bg-hi))}
+.page.land .to-flow .f-track{inset:-0.5px; border-width:1px}
+.page.land .to-flow .f-band{
+  inset:-1px;
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 4.5px), #000 calc(100% - 1px));
+          mask:radial-gradient(farthest-side, transparent calc(100% - 4.5px), #000 calc(100% - 1px));
+}
+/* 个性3 的三圈细线环在横屏要单独重标定（rpx 环宽 → px；本规则在上方 land 单环
+   之后声明才能盖过它 —— 同特异性后到者胜）。环宽 1px、间隙 0.5px，d∈[0.5,4.5]px。
+   辉光同样换深蓝 accent（竖屏 theme-3 辉光覆盖的同款同步）。 */
+.page.land.theme-3 .to-flow{filter:drop-shadow(0 0 4.5px var(--t-accent))}
+.page.land.theme-3 .to-flow .f-band{
+  -webkit-mask:radial-gradient(farthest-side,
+    transparent calc(100% - 4.5px), #000 calc(100% - 4.5px),
+    #000 calc(100% - 3.5px), transparent calc(100% - 3.5px),
+    transparent calc(100% - 3px), #000 calc(100% - 3px),
+    #000 calc(100% - 2px), transparent calc(100% - 2px),
+    transparent calc(100% - 1.5px), #000 calc(100% - 1.5px),
+    #000 calc(100% - 0.5px), transparent calc(100% - 0.5px));
+          mask:radial-gradient(farthest-side,
+    transparent calc(100% - 4.5px), #000 calc(100% - 4.5px),
+    #000 calc(100% - 3.5px), transparent calc(100% - 3.5px),
+    transparent calc(100% - 3px), #000 calc(100% - 3px),
+    #000 calc(100% - 2px), transparent calc(100% - 2px),
+    transparent calc(100% - 1.5px), #000 calc(100% - 1.5px),
+    #000 calc(100% - 0.5px), transparent calc(100% - 0.5px));
+}

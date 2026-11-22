@@ -1,0 +1,171 @@
+<!-- ===========================================================================
+  控制模式选择（2026-10-23 落地自 design/mode-select-preview.html 定稿）
+  流程：选择模式 → 启动动画（无人机=A 轨道停靠 / 平衡车=B 碎片积木 /
+        智能车=C 循迹进站）→ 图形先收 240ms → navigateTo 对应控制页
+        （目标页根节点自带 scale .96→1 长入）
+  纪律：
+  · 三套个性（2026-10-24 开放）：根挂 theme-{{persona}}，冷启恒为 1；
+    翻转手机循环切换 1→2→3——**屏幕朝下那一刻即完成切换**（背面无感换肤，
+    翻回来已是新个性）；加速度计判 z 轴，界面不旋转；选定后经
+    ?persona=N 带给控制页（控制页 onLoad 接收，冷启直开仍是 1）
+  · 键体 transform/box-shadow 只归"按下"（JS 驱动 .pressed）
+  · 幕布淡出必须 forwards（both 会在 140ms delay 里被 to 反向填充提前露底）
+  · B 变体进度环 = canvas 2d 描线（SVG 在 wxml 不可用；dashoffset 改 canvas arc）
+  · 图标全部用 view 拼装（wxml 无 SVG）：无人机 1u=2.3125rpx、卡片图标 1u=2rpx
+  =========================================================================== -->
+<view class="page theme-{{persona}}">
+
+  <!-- ===== 层1：模式选择 ===== -->
+  <view class="layer sel">
+    <view class="brand">TREE·LINK</view>
+    <view class="sel-title">选择控制模式</view>
+    <view class="sel-sub">选定后将启动对应控制界面</view>
+
+    <!-- 智能车模式卡（2026-10-24 新增，排首位）：侧视四轮车 + 前视传感器 + 扫描波
+         下陷反馈与另两卡同套：touchstart 即时挂 .pressed -->
+    <view class="mode-hit" data-mode="smart"
+          bindtouchstart="onCardDown" bindtouchend="onCardUp" bindtouchcancel="onCardCancel">
+    <view class="mode-card {{pressedCard === 'smart' ? 'pressed' : ''}}">
+      <view class="mc-ico">
+        <view class="ci-sbody"></view>
+        <view class="ci-scw" style="left:28rpx;top:68rpx"></view>
+        <view class="ci-scw" style="left:58rpx;top:68rpx"></view>
+        <view class="ci-seye"></view>
+        <view class="ci-swave" style="left:92rpx;top:34rpx;opacity:.55"></view>
+        <view class="ci-swave" style="left:96rpx;top:46rpx;opacity:.3"></view>
+      </view>
+      <view class="mc-txt">
+        <view class="mc-name">智能车模式</view>
+        <view class="mc-desc">循迹行驶 · 自动避障 · 遥控巡航</view>
+      </view>
+      <view class="mc-chev"></view>
+    </view>
+    </view>
+
+    <!-- 平衡车模式卡：两轮自平衡侧视（轮 + 轮毂 + 摆杆 + 头部 + 速度线） -->
+    <view class="mode-hit" data-mode="car"
+          bindtouchstart="onCardDown" bindtouchend="onCardUp" bindtouchcancel="onCardCancel">
+    <view class="mode-card {{pressedCard === 'car' ? 'pressed' : ''}}">
+      <view class="mc-ico">
+        <view class="ci-wheel"></view>
+        <view class="ci-hubc"></view>
+        <view class="ci-parm"></view>
+        <view class="ci-headc"></view>
+        <view class="ci-speed" style="left:84rpx;top:98rpx;opacity:.6"></view>
+        <view class="ci-speed" style="left:90rpx;top:110rpx;opacity:.35"></view>
+      </view>
+      <view class="mc-txt">
+        <view class="mc-name">平衡车模式</view>
+        <view class="mc-desc">自平衡控制 · 倾角仪表 · 双向行驶</view>
+      </view>
+      <view class="mc-chev"></view>
+    </view>
+    </view>
+
+    <!-- 无人机模式卡：四轴俯视（四桨盘 + 四臂 + 机身 + 桩心点） -->
+    <view class="mode-hit" data-mode="drone"
+          bindtouchstart="onCardDown" bindtouchend="onCardUp" bindtouchcancel="onCardCancel">
+    <view class="mode-card {{pressedCard === 'drone' ? 'pressed' : ''}}">
+      <view class="mc-ico">
+        <view class="ci-arm" style="left:28rpx;top:38rpx;transform:rotate(45deg)"></view>
+        <view class="ci-arm" style="left:74rpx;top:38rpx;transform:rotate(-45deg)"></view>
+        <view class="ci-arm" style="left:28rpx;top:84rpx;transform:rotate(-45deg)"></view>
+        <view class="ci-arm" style="left:74rpx;top:84rpx;transform:rotate(45deg)"></view>
+        <view class="ci-rotor" style="left:10rpx;top:10rpx"></view>
+        <view class="ci-rotor" style="left:86rpx;top:10rpx"></view>
+        <view class="ci-rotor" style="left:10rpx;top:86rpx"></view>
+        <view class="ci-rotor" style="left:86rpx;top:86rpx"></view>
+        <view class="ci-hub" style="left:22rpx;top:22rpx"></view>
+        <view class="ci-hub" style="left:98rpx;top:22rpx"></view>
+        <view class="ci-hub" style="left:22rpx;top:98rpx"></view>
+        <view class="ci-hub" style="left:98rpx;top:98rpx"></view>
+        <view class="ci-body"></view>
+      </view>
+      <view class="mc-txt">
+        <view class="mc-name">无人机模式</view>
+        <view class="mc-desc">飞行控制 · 陀螺仪姿态遥控 · 特技动作</view>
+      </view>
+      <view class="mc-chev"></view>
+    </view>
+    </view>
+
+    <view class="sel-foot">启动动画期间将同步建立设备连接</view>
+    <view class="sel-hint">翻转手机 · 切换个性皮肤</view>
+    <view class="homebar"></view>
+  </view>
+
+  <!-- ===== 层2：启动动画（无人机=A 轨道停靠 / 平衡车=B 碎片积木 / 智能车=C 循迹进站） ===== -->
+  <view class="layer splash {{splashMode === 'drone' ? 'vA' : splashMode === 'smart' ? 'vC' : 'vB'}} {{handoff ? 'handoff' : ''}}"
+        wx:if="{{splashShow}}">
+    <view class="sp-fig">
+      <view class="sp-glow"></view>
+      <view class="sp-track"></view>
+      <!-- B 变体进度环（A 变体 CSS 隐藏）：canvas 2d 描线 0→100% -->
+      <canvas type="2d" id="ringCv" class="sp-ring"></canvas>
+      <!-- A 变体轨道光点（B 变体 CSS 隐藏）：两圈减速 → 顶部入位 -->
+      <view class="orbit"><view class="orbit-dot"></view></view>
+
+      <!-- 无人机图标：四桨盘(e1-e4) → 四臂(a1-a4) → 机身(b1)，A 变体逐件点亮
+           （臂的角度走 --rot 变量，见 wxss——keyframes transform 会替换内联旋转） -->
+      <view class="sp-ico sp-drone" hidden="{{splashMode !== 'drone'}}">
+        <view class="rotor-g">
+          <view class="rotor-e pi e1" style="left:5rpx;top:24rpx"></view>
+          <view class="rotor-e pi e2" style="left:92rpx;top:24rpx"></view>
+          <view class="rotor-e pi e3" style="left:5rpx;top:112rpx"></view>
+          <view class="rotor-e pi e4" style="left:92rpx;top:112rpx"></view>
+        </view>
+        <view class="arm-e pi a1" style="left:36rpx;top:46rpx"></view>
+        <view class="arm-e pi a2" style="left:86rpx;top:46rpx"></view>
+        <view class="arm-e pi a3" style="left:36rpx;top:96rpx"></view>
+        <view class="arm-e pi a4" style="left:86rpx;top:96rpx"></view>
+        <view class="body-e pi b1"></view>
+      </view>
+
+      <!-- 平衡车图标：轮(p1) → 轮毂(p2) → 摆杆(p3，角度走 --rot) → 头部(p4)，B 变体散点坠落拼合 -->
+      <view class="sp-ico sp-car" hidden="{{splashMode !== 'car'}}">
+        <view class="pend-g">
+          <view class="wheel-e pi p1"></view>
+          <view class="parm-e pi p3"></view>
+          <view class="head-e pi p4"></view>
+        </view>
+        <view class="hub-e pi p2"></view>
+      </view>
+
+      <!-- 智能车图标：vC「循迹进站」—— 部件原地拼合 → 整车沿循迹虚线减速驶入 →
+           刹车点头 → 传感器声呐波持续感知。入场位移与刹车点头分属
+           drive-g / settle-g 两层（双动画不共元素）；传感器外包 .eye-g 做
+           待命脉冲（同前纪律：入场 .pi 与 infinite 分层各跑各的） -->
+      <view class="sp-ico sp-smart" hidden="{{splashMode !== 'smart'}}">
+        <view class="drive-g">
+          <view class="settle-g">
+            <view class="sc-body-e pi s1"></view>
+            <view class="sc-wl-e pi s2"></view>
+            <view class="sc-wr-e pi s3"></view>
+            <view class="eye-g"><view class="sc-eye-e pi s4"></view></view>
+          </view>
+        </view>
+      </view>
+
+      <!-- vC 配角：循迹虚线（随车行进自左向右逐节点亮）+ 声呐波（进站后循环感知）；
+           非 vC 时这些元素无动画、按 base opacity:0 隐藏 -->
+      <view class="road">
+        <view class="rdash r1"></view>
+        <view class="rdash r2"></view>
+        <view class="rdash r3"></view>
+        <view class="rdash r4"></view>
+        <view class="rdash r5"></view>
+      </view>
+      <view class="s-arc a1"></view>
+      <view class="s-arc a2"></view>
+    </view>
+    <view class="sp-name">{{splashName}}</view>
+    <view class="sp-sub">
+      <text>{{splashSub}}</text>
+      <view class="sp-dots"><view></view><view></view><view></view></view>
+    </view>
+    <view class="homebar"></view>
+  </view>
+
+  <!-- 翻面换肤的全屏斜向光带（fixed 盖层，pointer-events:none；.go 触发一次扫过） -->
+  <view class="flip-fx {{personaFx}}"></view>
+</view>

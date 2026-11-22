@@ -1,0 +1,297 @@
+/* ===========================================================================
+   模式选择页样式（落地自 design/mode-select-preview.html，1px=2rpx）
+   三主题 token 与 utils/theme.js / index.wxss 同族；根挂 theme-{{persona}}
+   （2026-10-24 开放换肤：翻面循环切换，见 mode-select.js 翻面手势）
+   =========================================================================== */
+.page {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  background: var(--t-bg); color: var(--t-txt);
+}
+/* ---- 主题 token（mode-select 预览页同族值） ---- */
+.page.theme-1 {
+  --t-bg: #0d1a2b; --t-surface: #16283e; --t-panel: #1b3050;
+  --t-border: rgba(255,255,255,.10); --t-txt: #dfe8f4; --t-dim: #8aa0b8;
+  --t-acc: #4aa3ff; --t-acc-glow: rgba(74,163,255,.45); --t-ok: #37d67a;
+  --t-cap: rgba(0,0,0,.45);
+}
+.page.theme-2 {
+  --t-bg: #141021; --t-surface: #201a33; --t-panel: #282043;
+  --t-border: rgba(167,139,250,.16); --t-txt: #e6e0f7; --t-dim: #9d92bd;
+  --t-acc: #9b73ff; --t-acc-glow: rgba(155,115,255,.45); --t-ok: #37d67a;
+  --t-cap: rgba(0,0,0,.45);
+}
+.page.theme-3 {
+  --t-bg: #dde2ea; --t-surface: #eef1f6; --t-panel: #ffffff;
+  --t-border: rgba(27,34,48,.14); --t-txt: #1b2230; --t-dim: #5a6472;
+  --t-acc: #2456b3; --t-acc-glow: rgba(36,86,179,.30); --t-ok: #0e7a34;
+  --t-cap: rgba(0,0,0,.22);
+}
+
+/* ---- 层容器 ---- */
+.layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; }
+.homebar { position: absolute; left: 50%; bottom: 16rpx; transform: translateX(-50%);
+  width: 268rpx; height: 10rpx; border-radius: 6rpx; background: var(--t-txt); opacity: .35; }
+
+/* ================= 层1：模式选择 ================= */
+.sel { padding-top: 128rpx; }
+.brand { font-size: 24rpx; letter-spacing: 8rpx; color: var(--t-dim); margin-bottom: 12rpx; }
+.sel-title { font-size: 48rpx; font-weight: 600; letter-spacing: 4rpx; }
+.sel-sub { font-size: 26rpx; color: var(--t-dim); margin: 16rpx 0 60rpx; }
+
+/* 模式卡：实体键（厚度 8rpx），按下 = 位移+坑（transform/box-shadow 只归按下）
+   2026-10-24 下陷态由 JS 在 touchstart 即时挂 .pressed（hover-class 真机延迟可见）：
+   按下瞬时（0s），松手 0.12s 回弹 —— 点按即沉、松手即起 */
+.mode-hit { margin-bottom: 44rpx; }
+.mode-card { position: relative; width: 606rpx; height: 256rpx; border-radius: 36rpx;
+  background: var(--t-surface); border: 2rpx solid var(--t-border); box-sizing: border-box;
+  box-shadow: 0 8rpx 0 var(--t-cap), 0 12rpx 28rpx rgba(0,0,0,.30),
+              inset 0 0 0 2rpx rgba(255,255,255,.05);
+  display: flex; align-items: center; gap: 36rpx; padding: 0 44rpx;
+  transition: transform .12s ease, box-shadow .12s ease; }
+.mode-card.pressed { transform: translateY(8rpx); transition-duration: 0s, 0s;
+  box-shadow: 0 0 0 var(--t-cap), inset 0 10rpx 18rpx rgba(0,0,0,.30), 0 4rpx 10rpx rgba(0,0,0,.25); }
+.mc-ico { flex: none; width: 128rpx; height: 128rpx; border-radius: 32rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--t-panel); box-shadow: inset 0 0 0 2rpx var(--t-border); }
+.mc-ico > view { position: absolute; }
+.mc-ico { position: relative; }
+.mc-txt { flex: 1; min-width: 0; }
+.mc-name { font-size: 38rpx; font-weight: 600; letter-spacing: 2rpx; color: var(--t-txt); }
+.mc-desc { font-size: 24rpx; color: var(--t-dim); margin-top: 10rpx; line-height: 1.5; }
+.mc-chev { flex: none; width: 18rpx; height: 18rpx;
+  border-top: 4rpx solid var(--t-dim); border-right: 4rpx solid var(--t-dim);
+  transform: rotate(45deg); opacity: .7; }
+.sel-foot { margin-top: 28rpx; font-size: 22rpx; color: var(--t-dim); opacity: .75; letter-spacing: 1rpx; }
+/* 翻面换肤提示（本页唯一的换肤入口没有按键，用一行字交代手势） */
+.sel-hint { margin-top: 12rpx; font-size: 22rpx; color: var(--t-acc); opacity: .8; letter-spacing: 2rpx; }
+
+/* ---- 翻面换肤的全屏斜向光带（配方 = 控制页 .page.flip::after / pk-screen-flip）----
+   fixed 盖层 pointer-events:none，.go 挂上时扫过一次（translateX -125%→125%） */
+.flip-fx {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 90;
+  pointer-events: none; opacity: 0; transform: translateX(-125%);
+  background: linear-gradient(104deg,
+    transparent 26%,
+    var(--t-acc-glow) 42%,
+    rgba(255, 255, 255, .38) 50%,
+    var(--t-acc-glow) 58%,
+    transparent 74%);
+}
+.flip-fx.go { animation: ms-flip-sweep .55s cubic-bezier(.3, .65, .3, 1); }
+@keyframes ms-flip-sweep {
+  0%   { transform: translateX(-125%); opacity: 0; }
+  16%  { opacity: 1; }
+  100% { transform: translateX(125%);  opacity: 0; }
+}
+
+/* ---- 卡片图标（view 拼装，viewBox 64 → 128rpx，1u = 2rpx） ---- */
+.ci-rotor { position: absolute; width: 32rpx; height: 32rpx; border-radius: 50%;
+  border: 6rpx solid var(--t-acc); box-sizing: border-box; }
+.ci-hub { position: absolute; width: 8rpx; height: 8rpx; border-radius: 50%; background: var(--t-acc); }
+.ci-arm { position: absolute; width: 26rpx; height: 6rpx; border-radius: 3rpx; background: var(--t-acc); }
+.ci-body { position: absolute; left: 52rpx; top: 52rpx; width: 24rpx; height: 24rpx;
+  border-radius: 8rpx; background: var(--t-acc); opacity: .9; }
+.ci-wheel { position: absolute; left: 26rpx; top: 70rpx; width: 44rpx; height: 44rpx;
+  border-radius: 50%; border: 6rpx solid var(--t-acc); box-sizing: border-box; }
+.ci-hubc { position: absolute; left: 44rpx; top: 88rpx; width: 8rpx; height: 8rpx;
+  border-radius: 50%; background: var(--t-acc); }
+.ci-parm { position: absolute; left: 30rpx; top: 61rpx; width: 58rpx; height: 7rpx;
+  border-radius: 4rpx; background: var(--t-acc); transform: rotate(-68deg); }
+.ci-headc { position: absolute; left: 61rpx; top: 13rpx; width: 26rpx; height: 26rpx;
+  border-radius: 50%; border: 6rpx solid var(--t-acc); box-sizing: border-box; }
+.ci-speed { position: absolute; width: 22rpx; height: 5rpx; border-radius: 3rpx;
+  background: var(--t-acc); transform: rotate(-55deg); }
+/* 智能车卡图标（2026-10-24 新增）：侧视车壳 + 双轮 + 前视传感器 + 扫描波
+   （viewBox 64 → 128rpx，1u = 2rpx；轮位走内联 style） */
+.ci-sbody { position: absolute; left: 22rpx; top: 52rpx; width: 68rpx; height: 26rpx;
+  border: 5rpx solid var(--t-acc); border-radius: 9rpx; box-sizing: border-box; }
+.ci-scw { position: absolute; width: 20rpx; height: 20rpx; border-radius: 50%;
+  border: 5rpx solid var(--t-acc); box-sizing: border-box; }
+.ci-seye { position: absolute; left: 82rpx; top: 38rpx; width: 12rpx; height: 12rpx;
+  border-radius: 50%; background: var(--t-acc); }
+.ci-swave { position: absolute; width: 16rpx; height: 4rpx; border-radius: 2rpx;
+  background: var(--t-acc); transform: rotate(-18deg); }
+
+/* ================= 层2：启动动画 ================= */
+.splash { justify-content: center; background: var(--t-bg); z-index: 5; }
+/* 交棒：图形先收 → 幕布淡出（forwards，勿用 both——delay 期会被 to 反向填充） */
+.splash.handoff .sp-fig { animation: sp-shrink .24s ease-in both; }
+.splash.handoff { animation: sp-curtain .2s ease .14s forwards; pointer-events: none; }
+@keyframes sp-shrink { from { transform: scale(1); opacity: 1; } to { transform: scale(.92); opacity: 0; } }
+@keyframes sp-curtain { to { opacity: 0; } }
+
+.sp-fig { position: relative; width: 300rpx; height: 300rpx; }
+/* 图标底部光雾呼吸（系统在跑档），radial 椭圆 */
+.sp-glow { position: absolute; left: 50%; bottom: -8rpx; width: 236rpx; height: 60rpx;
+  transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, var(--t-acc-glow), transparent);
+  filter: blur(14rpx); opacity: .3; animation: glow-breathe 2.4s ease-in-out infinite; }
+@keyframes glow-breathe {
+  0%, 100% { opacity: .28; transform: translateX(-50%) scale(1); }
+  50%      { opacity: .55; transform: translateX(-50%) scale(1.12); } }
+
+/* 轨道（底）：A 变体到位后提亮；B 变体作描线的底环 */
+.sp-track { position: absolute; left: 14rpx; top: 14rpx; width: 272rpx; height: 272rpx;
+  border: 6rpx solid var(--t-border); border-radius: 50%; box-sizing: border-box; }
+/* B 进度环 canvas（A 隐藏） */
+.sp-ring { position: absolute; left: 14rpx; top: 14rpx; width: 272rpx; height: 272rpx; }
+.splash.vA .sp-ring { display: none; }
+
+/* ---- A 轨道停靠（无人机）：光点两圈减速 → 顶部入位 → 轨道提亮 → 部件点亮 ---- */
+.orbit { position: absolute; inset: 0; display: none; }
+.splash.vA .orbit { display: block; animation: orbit-dock 1.1s cubic-bezier(.22,.75,.3,1) forwards; }
+@keyframes orbit-dock { from { transform: rotate(720deg); } to { transform: rotate(360deg); } }
+.orbit-dot { position: absolute; left: 142rpx; top: 6rpx; width: 16rpx; height: 16rpx;
+  border-radius: 50%; background: var(--t-acc);
+  box-shadow: 0 0 14rpx var(--t-acc-glow); }
+.splash.vA .sp-track { animation: track-lit .4s ease 1.08s forwards; }
+@keyframes track-lit { to { border-color: var(--t-acc); box-shadow: 0 0 12rpx var(--t-acc-glow); } }
+
+/* ---- 图标部件：错峰基准 --t0 + --i*55ms，变体只换 animation-name/时长/缓动 ----
+   base opacity:0 + forwards（delay 期隐藏，无 both 反填陷阱） */
+.sp-ico { position: absolute; left: 50%; top: 50%; width: 148rpx; height: 148rpx;
+  margin: -74rpx 0 0 -74rpx;
+  filter: drop-shadow(0 0 28rpx var(--t-acc-glow)); }
+.sp-ico .pi { opacity: 0;
+  animation-duration: .34s; animation-timing-function: cubic-bezier(.3,1.42,.55,1);
+  animation-fill-mode: forwards; animation-delay: calc(var(--t0, 0s) + var(--i, 0) * .055s); }
+/* A：部件被光点「点亮」（过亮→缩回落定）
+   ★ 静态旋转用 --rot 写进每一帧：keyframes 的 transform 会整体替换元素样式，
+   桨臂/摆杆的 rotate 若放内联 style 会在入场后被冲成横条 */
+.splash.vA .pi { animation-name: part-lit; animation-duration: .3s; }
+/* B：部件自散点坠落 → 硬停 → 压扁 → 回弹过头 → 锁死（积木配方） */
+.splash.vB .pi { animation-name: block-in; animation-duration: .55s;
+  animation-timing-function: cubic-bezier(.5,.05,.7,.4); }
+@keyframes part-lit {
+  0%   { opacity: 0; transform: rotate(var(--rot, 0deg)) scale(1.25); }
+  70%  { opacity: 1; transform: rotate(var(--rot, 0deg)) scale(.96); }
+  100% { opacity: 1; transform: rotate(var(--rot, 0deg)) scale(1); } }
+@keyframes block-in {
+  0%   { opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(var(--rot, 0deg)) scale(.6); }
+  62%  { opacity: 1; transform: translate(0, 0) rotate(var(--rot, 0deg)) scale(1); }
+  76%  { transform: rotate(var(--rot, 0deg)) scale(1.12, .82); }
+  90%  { transform: rotate(var(--rot, 0deg)) scale(.95, 1.07); }
+  100% { opacity: 1; transform: rotate(var(--rot, 0deg)) scale(1); } }
+.splash.vA { --t0: 1.05s; }
+.splash.vB { --t0: 0s; }
+/* 部件序（错峰步进）；B 另带散点方位；带静态角度的部件另给 --rot */
+.sp-drone .e1 { --i: 0; } .sp-drone .e2 { --i: 1; } .sp-drone .e3 { --i: 2; } .sp-drone .e4 { --i: 3; }
+.sp-drone .a1 { --i: 4; --rot: 45deg; }  .sp-drone .a2 { --i: 5; --rot: -45deg; }
+.sp-drone .a3 { --i: 6; --rot: -45deg; } .sp-drone .a4 { --i: 7; --rot: 45deg; }
+.sp-drone .b1 { --i: 8; }
+.sp-car .p1 { --i: 0; --fx: -44rpx; --fy: 52rpx; }
+.sp-car .p2 { --i: 1; --fx: -20rpx; --fy: 60rpx; }
+.sp-car .p3 { --i: 2; --fx: 28rpx; --fy: -20rpx; --rot: -68deg; }
+.sp-car .p4 { --i: 3; --fx: 60rpx; --fy: -48rpx; }
+
+/* ---- 无人机图标零件（viewBox 64 → 148rpx，1u=2.3125rpx） ---- */
+.rotor-g { position: absolute; inset: 0; animation: rot-spin 1.6s linear infinite; }
+@keyframes rot-spin { to { transform: rotate(360deg); } }
+.rotor-e { position: absolute; width: 51rpx; height: 12rpx; border-radius: 50%;
+  border: 5rpx solid var(--t-acc); box-sizing: border-box; }
+.arm-e { position: absolute; width: 26rpx; height: 6rpx; border-radius: 3rpx; background: var(--t-acc); }
+.body-e { position: absolute; left: 60rpx; top: 60rpx; width: 28rpx; height: 28rpx;
+  border-radius: 9rpx; background: var(--t-acc); opacity: .9; }
+
+/* ---- 平衡车图标零件 ---- */
+.pend-g { position: absolute; inset: 0; transform-origin: 56rpx 106rpx;
+  animation: pend-sway 1.3s ease-in-out infinite alternate; }
+@keyframes pend-sway { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+.wheel-e { position: absolute; left: 30rpx; top: 81rpx; width: 51rpx; height: 51rpx;
+  border-radius: 50%; border: 6rpx solid var(--t-acc); box-sizing: border-box; }
+.parm-e { position: absolute; left: 34rpx; top: 72rpx; width: 68rpx; height: 7rpx;
+  border-radius: 4rpx; background: var(--t-acc); transform: rotate(-68deg); }
+.head-e { position: absolute; left: 71rpx; top: 15rpx; width: 30rpx; height: 30rpx;
+  border-radius: 50%; border: 6rpx solid var(--t-acc); box-sizing: border-box; }
+.hub-e { position: absolute; left: 50rpx; top: 101rpx; width: 10rpx; height: 10rpx;
+  border-radius: 50%; background: var(--t-acc); }
+
+/* ---- 智能车图标零件（2026-10-24 换装 vC「循迹进站」）----
+   侧视车（148rpx 框）：车壳 26..122 × 60..96，双轮压车壳下沿，传感器在车头右上；
+   序 --i 只用于入场错峰（vC 原地拼合，散点方位 --fx/--fy 已弃用） */
+.sp-smart .s1 { --i: 0; }
+.sp-smart .s2 { --i: 1; }
+.sp-smart .s3 { --i: 2; }
+.sp-smart .s4 { --i: 3; }
+.sc-body-e { position: absolute; left: 26rpx; top: 60rpx; width: 96rpx; height: 36rpx;
+  border: 6rpx solid var(--t-acc); border-radius: 12rpx; box-sizing: border-box; }
+.sc-wl-e { position: absolute; left: 34rpx; top: 84rpx; width: 30rpx; height: 30rpx;
+  border: 6rpx solid var(--t-acc); border-radius: 50%; box-sizing: border-box; }
+.sc-wr-e { position: absolute; left: 86rpx; top: 84rpx; width: 30rpx; height: 30rpx;
+  border: 6rpx solid var(--t-acc); border-radius: 50%; box-sizing: border-box; }
+/* 传感器外包一层做待命脉冲（.pi 自身的入场动画不能混 infinite —— 双 animation
+   打同一元素时后者会顶掉前者，见启动动画纪律；故拆两层各跑各的） */
+.eye-g { position: absolute; inset: 0; animation: eye-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes eye-pulse {
+  from { opacity: .72; }
+  to   { opacity: 1; filter: drop-shadow(0 0 8rpx var(--t-acc-glow)); }
+}
+.sc-eye-e { position: absolute; left: 108rpx; top: 44rpx; width: 18rpx; height: 18rpx;
+  border-radius: 50%; background: var(--t-acc); }
+
+/* ---- vC「循迹进站」（智能车专属，2026-10-24 换装）----
+   时轴：0~0.35s 部件原地拼合（与循迹虚线逐节点亮并行）
+         → 0.42~1.04s 整车沿虚线减速驶入（从环外 -170rpx 进站）
+         → 1.02~1.52s 刹车点头回弹 → 1.2s 起传感器声呐波循环感知
+   纪律：入场位移 / 刹车点头分属 drive-g / settle-g 两层（双动画不共元素）；
+   brake-dip 的 both 只反填 transform（from = 自然态），无 opacity 风险 */
+.splash.vC { --t0: 0s; }
+.splash.vC .pi { animation-name: part-pop; animation-duration: .3s;
+  animation-timing-function: cubic-bezier(.3,.8,.4,1); }
+@keyframes part-pop {
+  0%   { opacity: 0; transform: scale(.55); }
+  70%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); } }
+/* 驶入：前快后慢的减速曲线 = 进站减速 */
+.splash.vC .drive-g { animation: drive-in .62s cubic-bezier(.16,.8,.3,1) .42s both; }
+@keyframes drive-in { from { transform: translateX(-170rpx); } to { transform: translateX(0); } }
+/* 刹车点头：绕轮底（74,114）压头 → 回弹过头 → 锁死 */
+.splash.vC .settle-g { transform-origin: 74rpx 114rpx;
+  animation: brake-dip .5s ease-out 1.02s both; }
+@keyframes brake-dip {
+  0%   { transform: rotate(0); }
+  38%  { transform: rotate(2.4deg); }
+  78%  { transform: rotate(-1.1deg); }
+  100% { transform: rotate(0); } }
+/* 循迹虚线：22rpx 段 + 14rpx 隙 ×5 居中（fig 67..233），随车行进自左向右逐节点亮 */
+.road { position: absolute; left: 0; top: 196rpx; width: 100%; height: 6rpx; }
+.road .rdash { position: absolute; top: 0; width: 22rpx; height: 6rpx;
+  border-radius: 3rpx; background: var(--t-acc); opacity: 0; }
+.splash.vC .rdash { animation: dash-lit .2s ease forwards; }
+.rdash.r1 { left: 67rpx;  animation-delay: .06s; }
+.rdash.r2 { left: 103rpx; animation-delay: .15s; }
+.rdash.r3 { left: 139rpx; animation-delay: .24s; }
+.rdash.r4 { left: 175rpx; animation-delay: .33s; }
+.rdash.r5 { left: 211rpx; animation-delay: .42s; }
+@keyframes dash-lit {
+  from { opacity: 0; transform: scaleX(.3); }
+  to   { opacity: .85; transform: scaleX(1); } }
+/* 声呐波：以传感器（fig 193,129）为心外扩，循环感知；非 vC 恒隐 */
+.s-arc { position: absolute; left: 177rpx; top: 113rpx; width: 32rpx; height: 32rpx;
+  border: 4rpx solid var(--t-acc); border-radius: 50%; box-sizing: border-box; opacity: 0; }
+.splash.vC .s-arc { animation: sonar 1.5s ease-out 1.2s infinite; }
+.splash.vC .s-arc.a2 { animation-delay: 1.55s; }
+@keyframes sonar {
+  0%   { transform: scale(.35); opacity: .85; }
+  100% { transform: scale(2.8); opacity: 0; } }
+/* vC 文案：等整车进站后再起 */
+.splash.vC .sp-name { animation-delay: 1.05s; }
+.splash.vC .sp-sub  { animation-delay: 1.2s; }
+
+/* ---- 文案（vB 基础时序；vA 等光点入位后再起） ---- */
+.sp-name { margin-top: 52rpx; font-size: 38rpx; font-weight: 600; letter-spacing: 4rpx;
+  animation: sp-txt .5s .75s ease both; }
+.sp-sub { margin-top: 18rpx; font-size: 25rpx; color: var(--t-dim);
+  display: flex; align-items: center;
+  animation: sp-txt .5s .9s ease both; }
+.splash.vA .sp-name { animation-delay: 1.2s; }
+.splash.vA .sp-sub  { animation-delay: 1.35s; }
+@keyframes sp-txt { from { opacity: 0; transform: translateY(16rpx); } to { opacity: 1; transform: translateY(0); } }
+/* 连接点轮闪：链路建立中 */
+.sp-dots { display: inline-flex; gap: 7rpx; margin-left: 14rpx; }
+.sp-dots view { width: 7rpx; height: 7rpx; border-radius: 50%; background: var(--t-dim);
+  animation: dot-blink 1.2s ease-in-out infinite; }
+.sp-dots view:nth-child(2) { animation-delay: .2s; }
+.sp-dots view:nth-child(3) { animation-delay: .4s; }
+@keyframes dot-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }

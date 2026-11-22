@@ -1,0 +1,366 @@
+/* ===========================================================================
+   全局主题变量 —— CSS 侧的配色定义
+   ---------------------------------------------------------------------------
+   命名规则：--t- + utils/theme.js 里 key 的 kebab-case
+             例：theme.js 的 bgBase  ⇄  --t-bg-base
+   与 utils/theme.js **必须保持一致**（那里同时供 Canvas 取色）。
+   改完跑自检：node drone-12cm/tools/check-theme.js
+   =========================================================================== */
+page {
+  --t-bg-base: #141821;        /* 页面 / 窗口底色（平色，供面板/对比计算用） */
+  /* 页面背景三段渐变（上亮下暗纵向渐变；渐变由 .page 一层绘制）。
+     2026-10-24 与 T2 拉开色相区分度：T1 往钢蓝（hue≈212°）推。
+     仅作背景用 —— 面板/键面取色仍走 --t-bg-base / --t-bg-surface。 */
+  --t-bg-hi: #153050;          /* 渐变亮端（页面上部） */
+  --t-bg-md: #0d1e33;          /* 渐变中段（52% 处） */
+  --t-bg-lo: #081322;          /* 渐变暗端（页面下部） */
+  --t-bg-surface: #232a38;     /* 卡片、摇杆底、圆盘底、输入框 */
+  --t-border: #2f3a4d;         /* 描边 / 边框 */
+  --t-text: #e6e9ef;           /* 主文字 */
+  --t-text-dim: #9aa4b2;       /* 次级文字 */
+  --t-on-accent: #ffffff;      /* 强调色底上的反白文字 */
+  --t-accent: #326fd2;         /* 蓝 · 主操作（白字 4.84） */
+  --t-ok: #12833c;             /* 绿 · 解锁 / 正常（白字 4.84） */
+  --t-danger: #dc2626;         /* 红 · 上锁 / 故障（白字 4.83） */
+  --t-warn: #ab5e05;           /* 橙 · 避障（白字 4.84） */
+  --t-info: #077c98;           /* 青 · 降落（白字 4.83） */
+  --t-gyro: #facc15;           /* 黄 · 陀螺仪 / 机体符号 */
+  --t-shadow: rgba(0, 0, 0, 0.5); /* 通用投影（摇杆帽 2026-10-23 起改用平衡车固定深色配方，不再引用） */
+  --t-stick-edge: #5d6574;     /* 陀螺仪圆盘沿描边（canvas 侧 THEME.stickEdge；对页面底 3.03） */
+  --t-steel: #6b7a92;          /* 电机柱体（中性钢灰，对槽底 3.30） */
+
+  /* ---- 材质结构色：质感层（统一光源=正上方；凹与凸的内阴影方向相反）---- */
+  --t-edge-light: rgba(255, 255, 255, 0.12); /* 凸起·顶沿高光 */
+  --t-edge-dark: rgba(0, 0, 0, 0.35);        /* 凸起·底沿内暗 */
+  --t-shade-in: rgba(0, 0, 0, 0.5);          /* 凹陷·上沿内阴影 */
+  --t-shade-out: rgba(0, 0, 0, 0.45);        /* 凸起·落地投影 */
+  /* ---- 键体质感四件套（2026-11-15 对标平衡车「实体键」配方）----
+     --t-key-cap 从半透明黑改为实心侧壁：半透明叠在渐变底上会透出底色，
+     键帽侧面读不出"厚度"；实心才是物理侧壁。
+     --t-key-face 键面实心色（比 --t-bg-surface 更沉一档，与浅色键面 T3 成对）；
+     --t-key-edge 键面内环线（T3 浅色面配深色线，token 成对设计）；
+     --t-panel 胶囊面板底（输入框/遥测/徽章，替代旧凹槽）。 */
+  --t-key-face: #16283f;                     /* 键面（T1 钢穹） */
+  --t-key-cap: #05090f;                      /* 键帽侧面（实心，按钮厚度） */
+  --t-key-edge: rgba(255, 255, 255, 0.14);   /* 键面内环白边 */
+  --t-panel: rgba(22, 40, 63, 0.72);         /* 胶囊面板底 */
+  --t-grip-on: rgba(50, 111, 210, 0.35);     /* 摇杆按下内圈（随 accent） */
+  --t-glow-accent: rgba(50, 111, 210, 0.5);  /* 陀螺仪开启 / 爬升中发光 */
+  --t-glow-info: rgba(7, 124, 152, 0.5);     /* 下降中发光（随 info） */
+
+  /* ---- 强调色派生：动效层专用（2026-10-21 归并自 52 处蓝色硬编码）----
+     T1 值 = 归并前的原值（个别 0.05~0.12 的透明度档差已就近归并，瞬态不可辨）。
+     主题覆盖见下方 .page.theme-2 / .page.theme-3。青色族（下降）随 --t-info，
+     绿色族随 --t-ok —— 状态色恒定，不在此列。 */
+  --t-acc-ring: rgba(88, 146, 240, 0.85);      /* 外扩 / 内收环 */
+  --t-acc-fx: rgba(150, 195, 255, 0.9);        /* 陀螺开启 fx-ring */
+  --t-acc-breathe-lo: #2b62bd;                 /* gyro.on 呼吸两端 */
+  --t-acc-breathe-hi: #3f80e6;
+  --t-acc-inner-lo: rgba(190, 220, 255, 0.14); /* gyro.on 内辉光两端 / stick 外辉光 */
+  --t-acc-inner-hi: rgba(205, 228, 255, 0.5);
+  --t-acc-conn-hi: #4b8ae8;                    /* 连接中呼吸峰值 */
+  --t-acc-edge: #8fb8ff;                       /* 通用蓝线（标尺箭头 / 个性 tick 边） */
+  --t-acc-edge-hi: #cfe4ff;                    /* 特技边框过流峰值 */
+  --t-acc-btn: #79a9f2;                        /* 连接键边线 */
+  --t-acc-sweep: rgba(168, 204, 255, 0.42);    /* 特技键面光斑 */
+  --t-acc-sweep-0: rgba(50, 111, 210, 0);
+  --t-acc-rip-1: rgba(158, 200, 255, 0.62);    /* 连接涟漪四档 */
+  --t-acc-rip-2: rgba(158, 200, 255, 0.3);
+  --t-acc-rip-3: rgba(158, 200, 255, 0.18);
+  --t-acc-rip-0: rgba(158, 200, 255, 0);
+  --t-acc-stick-ring: rgba(130, 182, 255, 0.72); /* 跟随环描边 */
+  --t-acc-inner: rgba(64, 126, 226, 0.34);     /* 跟随环外辉光 */
+  --t-acc-inner-2: rgba(64, 126, 226, 0.2);    /* 跟随环内辉光 */
+  --t-acc-halo-2: rgba(140, 190, 255, 0.1);    /* 摇杆内环纹 */
+  --t-acc-fill-lo: rgba(120, 175, 255, 0.4);   /* 标尺充能底 */
+  --t-acc-fill-hi: rgba(214, 235, 255, 1);     /* 充能顶端 */
+  --t-acc-line: rgba(228, 246, 255, 0.95);     /* 液面亮线 */
+  --t-acc-line-glow: rgba(160, 205, 255, 0.85);
+  --t-acc-dot: #c9deff;                        /* 游标点亮 */
+  --t-acc-tail: rgba(146, 194, 255, 0.55);     /* 拖尾 */
+  --t-acc-tail-0: rgba(146, 194, 255, 0);
+  --t-acc-chev: #d3e4ff;                       /* up 箭头亮 */
+  --t-acc-tr-lo: rgba(120, 172, 255, 0.16);    /* track 微光三档 */
+  --t-acc-tr-md: rgba(120, 172, 255, 0.5);
+  --t-acc-tr-hi: rgba(120, 172, 255, 0.55);
+  --t-acc-dot-glow: rgba(160, 202, 255, 0.95); /* 游标辉光 */
+  --t-acc-hold-bg: #1c3c68;                    /* 爬升按住态底 */
+  --t-acc-hold-stripe: rgba(150, 195, 255, 0.22); /* 按住态流动条纹 */
+  --t-acc-hold: #4a7ec8;                       /* 按住态边线 */
+  --t-acc-hold-hi: #93c0f7;                    /* 边线峰值 */
+  --t-acc-busy-bg: #2f5fb4;                    /* 特技 busy 键底 */
+  --t-acc-prog-lo: rgba(50, 111, 210, 0.15);   /* 启动进度条起 */
+  --t-acc-prog-hi: #9cc8ff;                    /* 启动进度条尾 */
+  --t-acc-sweep-2: rgba(186, 218, 255, 0.5);   /* 特技三层光带·蓝束 */
+  --t-acc-sweep-2-0: rgba(186, 218, 255, 0);
+  --t-acc-suck-a: rgba(150, 195, 255, 0.3);    /* 按住内收辉光四档 */
+  --t-acc-suck-b: rgba(150, 190, 255, 0.1);
+  --t-acc-suck-hi: rgba(200, 226, 255, 0.92);
+  --t-acc-suck-md: rgba(165, 210, 255, 0.45);
+
+  /* ---- 反馈色动效派生：绿=正常/解锁、青=降落 ----
+     色相恒定（语义不变），亮度/饱和随主题性格：
+     T1 标准 · T2 荧光电感（提亮） · T3 加深（保浅底对比）。 */
+  --t-ok-fx: rgba(120, 235, 165, 0.9);         /* 开关周期环（绿） */
+  --t-ok-br-lo: #127c3c;                        /* 解锁键呼吸两端 */
+  --t-ok-br-hi: #21a059;
+  --t-ok-br-edge: #2bb466;
+  --t-ok-inner-lo: rgba(170, 255, 205, 0.16);   /* 呼吸内辉光 */
+  --t-ok-inner-hi: rgba(190, 255, 220, 0.55);
+  --t-info-fx: rgba(130, 224, 244, 0.55);       /* 下降拖尾（青） */
+  --t-info-fx-0: rgba(130, 224, 244, 0);
+  --t-info-tr-lo: rgba(110, 214, 238, 0.16);    /* dn track 微光三档 */
+  --t-info-tr-md: rgba(110, 214, 238, 0.5);
+  --t-info-tr-hi: rgba(110, 214, 238, 0.55);
+  --t-info-fill-lo: rgba(120, 205, 225, 0.32);  /* dn 充能底 */
+  --t-info-fill-hi: rgba(204, 250, 255, 1);
+  --t-info-line: rgba(218, 252, 255, 0.95);     /* dn 液面亮线 */
+  --t-info-line-glow: rgba(140, 232, 248, 0.85);
+  --t-info-dot: #c4f3fb;                        /* dn 游标点亮 */
+  --t-info-chev: #cbf6ff;                       /* dn 箭头亮 */
+  --t-info-dot-glow: rgba(140, 236, 252, 0.95); /* dn 游标辉光 */
+  --t-info-hold-bg: #123d4b;                    /* 下降按住态底 */
+  --t-info-hold-stripe: rgba(130, 225, 245, 0.22);
+  --t-info-hold: #3a8fa6;                       /* 按住态边线 */
+  --t-info-hold-hi: #74d4e8;
+  --t-info-suck-a: rgba(140, 222, 240, 0.3);    /* 下降按住内辉光 */
+  --t-info-suck-b: rgba(140, 222, 240, 0.1);
+  --t-info-suck-hi: rgba(196, 248, 255, 0.92);
+  --t-info-suck-md: rgba(155, 240, 252, 0.45);
+  /* 蓄力特效（一键起飞按住）：内光 + 旋转弧。浅色主题换深色才与底有区分度 */
+  --t-acc-charge: rgba(190, 220, 255, 0.85);
+  --t-acc-arc: rgba(200, 225, 255, 0.9);
+  /* 一键起飞键配色：冷色系（深青），固定不随主题（自由强调位）；
+     bg 常态 / bg-hi 按下与待机呼吸亮档，白字对比 ≥5.9 */
+  --t-takeoff-bg: #1d4e80;      /* 起飞键：深钢蓝（2026-10-22 去绿感：原深青真机读成绿；绿=解锁专用色） */
+  --t-takeoff-bg-hi: #2e7fc4;
+
+  /* 窗口底色用平色兜底（只在 .page 未盖满时露出一瞬，如回弹）。
+     页面背景渐变只由 index.wxss 的 .page 一层绘制 —— 纪律：不在背景上叠背景 */
+  background: var(--t-bg-base);
+  color: var(--t-text);
+}
+
+/* ===========================================================================
+   个性主题（2026-10-21）：个性键循环切换，.page 根挂 theme-N 类。
+   只覆盖 token —— 布局零改动；T1 的值就是 page{} 里的默认值，theme-1 无需规则。
+   状态色（ok/danger/warn/info/gyro）三套恒定；canvas 侧见 utils/theme.js。
+   =========================================================================== */
+.page.theme-2 {
+  --t-bg-base: #141221;
+  --t-bg-surface: #221f38;
+  --t-border: #3a3560;
+  /* 紫电键体质感（与平衡车 T2 同值）：键面偏紫、侧壁更深的紫黑 */
+  --t-key-face: #221d3e;
+  --t-key-cap: #0a0716;
+  --t-panel: rgba(34, 29, 62, 0.72);
+  --t-text: #eae8f4;
+  --t-text-dim: #a49ec0;
+  --t-accent: #6d55d8;
+  --t-shadow: rgba(0, 0, 0, 0.5);
+  --t-stick-edge: #6a6490;
+  --t-steel: #7b74a0;
+  --t-grip-on: rgba(109, 85, 216, 0.35);
+  --t-glow-accent: rgba(109, 85, 216, 0.5);
+  --t-acc-ring: rgba(129, 104, 224, 0.85);
+  --t-acc-fx: rgba(190, 176, 255, 0.9);
+  --t-acc-breathe-lo: #513fb0;
+  --t-acc-breathe-hi: #7a63e0;
+  --t-acc-inner-lo: rgba(216, 208, 255, 0.14);
+  --t-acc-inner-hi: rgba(226, 219, 255, 0.5);
+  --t-acc-conn-hi: #8a74ec;
+  --t-acc-edge: #a99bf0;
+  --t-acc-edge-hi: #ded8ff;
+  --t-acc-btn: #9b8cf0;
+  --t-acc-sweep: rgba(196, 186, 255, 0.42);
+  --t-acc-sweep-0: rgba(90, 72, 200, 0);
+  --t-acc-rip-1: rgba(190, 178, 255, 0.62);
+  --t-acc-rip-2: rgba(190, 178, 255, 0.3);
+  --t-acc-rip-3: rgba(190, 178, 255, 0.18);
+  --t-acc-rip-0: rgba(190, 178, 255, 0);
+  --t-acc-stick-ring: rgba(170, 152, 255, 0.72);
+  --t-acc-inner: rgba(109, 85, 216, 0.34);
+  --t-acc-inner-2: rgba(109, 85, 216, 0.2);
+  --t-acc-halo-2: rgba(170, 156, 255, 0.1);
+  --t-acc-fill-lo: rgba(140, 120, 255, 0.4);
+  --t-acc-fill-hi: rgba(232, 227, 255, 1);
+  --t-acc-line: rgba(242, 239, 255, 0.95);
+  --t-acc-line-glow: rgba(180, 168, 255, 0.85);
+  --t-acc-dot: #ded8ff;
+  --t-acc-tail: rgba(166, 148, 255, 0.55);
+  --t-acc-tail-0: rgba(166, 148, 255, 0);
+  --t-acc-chev: #e4dfff;
+  --t-acc-tr-lo: rgba(146, 130, 255, 0.16);
+  --t-acc-tr-md: rgba(146, 130, 255, 0.5);
+  --t-acc-tr-hi: rgba(146, 130, 255, 0.55);
+  --t-acc-dot-glow: rgba(182, 166, 255, 0.95);
+  --t-acc-hold-bg: #241d52;
+  --t-acc-hold-stripe: rgba(190, 178, 255, 0.22);
+  --t-acc-hold: #6a58c4;
+  --t-acc-hold-hi: #b7a8f7;
+  --t-acc-busy-bg: #463a96;
+  --t-acc-prog-lo: rgba(109, 85, 216, 0.15);
+  --t-acc-prog-hi: #b7a8f7;
+  --t-acc-sweep-2: rgba(216, 206, 255, 0.5);
+  --t-acc-sweep-2-0: rgba(216, 206, 255, 0);
+  --t-acc-suck-a: rgba(190, 178, 255, 0.3);
+  --t-acc-suck-b: rgba(186, 176, 255, 0.1);
+  --t-acc-suck-hi: rgba(226, 220, 255, 0.92);
+  --t-acc-suck-md: rgba(196, 186, 255, 0.45);
+  /* 紫电反馈色：荧光电感 —— 绿→荧光薄荷、青→冰青提亮（色相不变，更"放电"） */
+  --t-ok-fx: rgba(150, 255, 210, 0.92);
+  --t-ok-br-lo: #0f9448;
+  --t-ok-br-hi: #2ee084;
+  --t-ok-br-edge: #52f2a0;
+  --t-ok-inner-lo: rgba(190, 255, 228, 0.18);
+  --t-ok-inner-hi: rgba(220, 255, 240, 0.6);
+  --t-info-fx: rgba(150, 236, 255, 0.6);
+  --t-info-fx-0: rgba(150, 236, 255, 0);
+  --t-info-tr-lo: rgba(120, 225, 250, 0.18);
+  --t-info-tr-md: rgba(120, 225, 250, 0.5);
+  --t-info-tr-hi: rgba(120, 225, 250, 0.55);
+  --t-info-fill-lo: rgba(110, 220, 245, 0.35);
+  --t-info-fill-hi: rgba(230, 252, 255, 1);
+  --t-info-line: rgba(235, 252, 255, 0.95);
+  --t-info-line-glow: rgba(150, 240, 255, 0.9);
+  --t-info-dot: #d6f8ff;
+  --t-info-chev: #d9fbff;
+  --t-info-dot-glow: rgba(150, 242, 255, 0.95);
+  --t-info-hold-bg: #0f3f52;
+  --t-info-hold-stripe: rgba(140, 236, 255, 0.24);
+  --t-info-hold: #38a3c4;
+  --t-info-hold-hi: #7cdcf0;
+  --t-info-suck-a: rgba(150, 236, 255, 0.32);
+  --t-info-suck-b: rgba(150, 236, 255, 0.12);
+  --t-info-suck-hi: rgba(215, 250, 255, 0.94);
+  --t-info-suck-md: rgba(170, 245, 255, 0.48);
+  --t-acc-charge: rgba(205, 200, 255, 0.85);
+  --t-takeoff-bg: #3b2f96;      /* T2 紫电：冷紫蓝（与 accent 同族更深） */
+  --t-takeoff-bg-hi: #6a58e0;
+  --t-acc-arc: rgba(215, 210, 255, 0.9);
+  /* T2 渐变底：「紫电」往紫罗兰（hue≈263°）推，与 T1 钢蓝拉开色相区分度
+     （渐变本身由 .page 一层绘制，这里只换 token） */
+  --t-bg-hi: #251746;
+  --t-bg-md: #160f2c;
+  --t-bg-lo: #0b0718;
+}
+
+.page.theme-3 {
+  --t-bg-base: #dde2ea;
+  /* T3 渐变底：延用平衡车「冰川」页背景（上亮下暗，浅色系） */
+  --t-bg-hi: #f2f6fb;
+  --t-bg-md: #e2e9f3;
+  --t-bg-lo: #d0d9e7;
+  --t-bg-surface: #eef1f6;
+  --t-border: #c3cad6;
+  --t-text: #1b2230;
+  --t-text-dim: #5a6472;
+  --t-accent: #2456b3;
+  --t-ok: #0e7a34;
+  --t-danger: #c81e1e;
+  --t-warn: #96520a;
+  --t-info: #056a84;
+  --t-gyro: #a97e08;
+  --t-shadow: rgba(0, 0, 0, 0.25);
+  --t-stick-edge: #8a93a3;
+  --t-steel: #7d8797;
+  --t-edge-light: rgba(255, 255, 255, 0.55);
+  --t-edge-dark: rgba(0, 0, 0, 0.22);
+  --t-shade-in: rgba(0, 0, 0, 0.25);
+  --t-shade-out: rgba(0, 0, 0, 0.18);
+  --t-key-cap: #93a5c0;
+  /* 极昼键体质感（与平衡车 T3 同值）：浅色键面 + 深色侧壁 + 深色内环线
+     —— 浅底上白内环不可见，内环必须换深色（token 成对设计纪律） */
+  --t-key-face: #f6f9fd;
+  --t-key-edge: rgba(30, 50, 90, 0.18);
+  --t-panel: rgba(255, 255, 255, 0.8);
+  --t-grip-on: rgba(36, 86, 179, 0.3);
+  --t-glow-accent: rgba(36, 86, 179, 0.4);
+  --t-glow-info: rgba(5, 106, 132, 0.45);
+  --t-acc-ring: rgba(37, 87, 180, 0.85);
+  --t-acc-fx: rgba(90, 130, 220, 0.9);
+  --t-acc-breathe-lo: #1c4a9e;
+  --t-acc-breathe-hi: #2f66c4;
+  --t-acc-inner-lo: rgba(90, 130, 220, 0.16);
+  --t-acc-inner-hi: rgba(120, 160, 230, 0.45);
+  --t-acc-conn-hi: #3a6fc9;
+  --t-acc-edge: #4d7fd6;
+  --t-acc-edge-hi: #9dc0f5;
+  --t-acc-btn: #4d7fd6;
+  --t-acc-sweep: rgba(120, 160, 230, 0.4);
+  --t-acc-sweep-0: rgba(36, 86, 179, 0);
+  --t-acc-rip-1: rgba(110, 150, 220, 0.62);
+  --t-acc-rip-2: rgba(110, 150, 220, 0.3);
+  --t-acc-rip-3: rgba(110, 150, 220, 0.18);
+  --t-acc-rip-0: rgba(110, 150, 220, 0);
+  --t-acc-stick-ring: rgba(90, 130, 220, 0.7);
+  --t-acc-inner: rgba(36, 86, 179, 0.3);
+  --t-acc-inner-2: rgba(36, 86, 179, 0.18);
+  --t-acc-halo-2: rgba(80, 120, 200, 0.1);
+  --t-acc-fill-lo: rgba(80, 130, 220, 0.4);
+  --t-acc-fill-hi: rgba(220, 236, 255, 1);
+  --t-acc-line: rgba(235, 246, 255, 0.95);
+  --t-acc-line-glow: rgba(120, 170, 240, 0.85);
+  --t-acc-dot: #b8d2f5;
+  --t-acc-tail: rgba(90, 140, 220, 0.5);
+  --t-acc-tail-0: rgba(90, 140, 220, 0);
+  --t-acc-chev: #7ba4e0;
+  --t-acc-tr-lo: rgba(80, 130, 220, 0.18);
+  --t-acc-tr-md: rgba(80, 130, 220, 0.45);
+  --t-acc-tr-hi: rgba(80, 130, 220, 0.5);
+  --t-acc-dot-glow: rgba(130, 175, 240, 0.95);
+  --t-acc-hold-bg: #ccd8ee;
+  --t-acc-hold-stripe: rgba(80, 120, 200, 0.25);
+  --t-acc-hold: #3a63ad;
+  --t-acc-hold-hi: #6f95d6;
+  --t-acc-busy-bg: #3a63ad;
+  --t-acc-prog-lo: rgba(36, 86, 179, 0.15);
+  --t-acc-prog-hi: #6f95d6;
+  --t-acc-sweep-2: rgba(120, 160, 230, 0.45);
+  --t-acc-sweep-2-0: rgba(120, 160, 230, 0);
+  --t-acc-suck-a: rgba(80, 120, 200, 0.3);
+  --t-acc-suck-b: rgba(80, 120, 200, 0.12);
+  --t-acc-suck-hi: rgba(220, 236, 255, 0.92);
+  --t-acc-suck-md: rgba(130, 175, 240, 0.45);
+  /* 极昼反馈色：整体加深 —— 浅底上状态色要够重才读得清（与 --t-ok/--t-info 加深同思路） */
+  --t-ok-fx: rgba(30, 170, 95, 0.85);
+  --t-ok-br-lo: #0e7a34;
+  --t-ok-br-hi: #16964a;
+  --t-ok-br-edge: #1fae58;
+  --t-ok-inner-lo: rgba(16, 140, 72, 0.16);
+  --t-ok-inner-hi: rgba(24, 170, 92, 0.42);
+  --t-info-fx: rgba(20, 150, 180, 0.5);
+  --t-info-fx-0: rgba(20, 150, 180, 0);
+  --t-info-tr-lo: rgba(10, 130, 160, 0.18);
+  --t-info-tr-md: rgba(10, 130, 160, 0.45);
+  --t-info-tr-hi: rgba(10, 130, 160, 0.5);
+  --t-info-fill-lo: rgba(8, 130, 160, 0.32);
+  --t-info-fill-hi: rgba(226, 248, 252, 1);
+  --t-info-line: rgba(232, 250, 253, 0.95);
+  --t-info-line-glow: rgba(60, 190, 220, 0.8);
+  --t-info-dot: #a8dfea;
+  --t-info-chev: #7ccfe0;
+  --t-info-dot-glow: rgba(70, 200, 230, 0.9);
+  --t-info-hold-bg: #c9e8ef;   /* 盈满形态：浅青按住底（2026-10-22，配深色文字） */
+  --t-info-hold-stripe: rgba(20, 150, 180, 0.22);
+  --t-info-hold: #0a7c96;
+  --t-info-hold-hi: #3cb4cc;
+  --t-info-suck-a: rgba(20, 150, 180, 0.28);
+  --t-info-suck-b: rgba(20, 150, 180, 0.1);
+  --t-info-suck-hi: rgba(210, 246, 252, 0.92);
+  --t-info-suck-md: rgba(90, 205, 230, 0.42);
+  --t-acc-charge: rgba(36, 86, 179, 0.55);
+  /* 盈满形态液面色（仅 T3）：爬升=蓝族 / 下降=青族 */
+  --t-acc-fill: rgba(58, 99, 173, 0.32);
+  --t-acc-fill-line: rgba(58, 99, 173, 0.72);
+  --t-info-fill: rgba(10, 124, 150, 0.30);
+  --t-info-fill-line: rgba(10, 124, 150, 0.7);
+  --t-takeoff-bg: #1273b8;      /* T3 极昼：亮蓝（去绿感：原亮青读成绿；与 T1 深蓝拉开明度） */
+  --t-takeoff-bg-hi: #38a0e0;
+  --t-acc-arc: rgba(36, 86, 179, 0.7);
+}
+
+/* 去掉基础库给 <button> 加的伪元素边框：自定义底色下它会露出脏边 */
+button::after {
+  border: none;
+}

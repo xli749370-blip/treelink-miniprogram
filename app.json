@@ -1,0 +1,16 @@
+{
+  "pages": [
+    "pages/mode-select/mode-select",
+    "pages/index/index",
+    "pages/balance/balance",
+    "pages/smartcar/smartcar"
+  ],
+  "window": {
+    "navigationBarTitleText": "12cm 无人机遥控",
+    "navigationBarBackgroundColor": "#141821",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#141821"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

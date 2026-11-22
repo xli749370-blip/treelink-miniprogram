@@ -1,0 +1,437 @@
+<view class="page page-enter theme-{{persona}} {{isLand ? 'land' : ''}} {{flip ? 'flip' : ''}}" style="padding-top: {{padTop}}px">
+
+  <!-- ======== 主题动态背景（2026-10-24 修剪）========
+       个性1/2 改为延用平衡车控制界面的纯渐变背景（app.wxss --t-bg-hi/md/lo，
+       由 .page 一层绘制）→ 原海雪/极光层已摘除（不在背景上叠背景）。
+       个性3 冰川纹理层保留（用户未要求改）。 -->
+  <view class="bgfx">
+    <block wx:if="{{persona === 3}}">
+      <view class="striation"></view>
+      <view class="facet f1"></view><view class="facet f2"></view><view class="facet f3"></view>
+      <view class="ice-sweep"></view>
+      <view class="glint g1"></view><view class="glint g2"></view>
+      <view class="ice-horizon"></view>
+    </block>
+  </view>
+
+  <view class="topbar">
+    <view class="tb-main">
+      <input class="ip" value="{{ip}}" bindinput="onIp" placeholder="ESP32 IP" />
+      <input class="port" value="{{port}}" bindinput="onPort" placeholder="端口" type="number" />
+      <button class="conn {{connecting && !connected ? 'connecting' : ''}} {{pressed == 'conn' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="conn">
+        <view class="lbl"><view class="ico ico-link {{connected ? 'off' : ''}}"><view class="lk lk-a"></view><view class="lk lk-b"></view></view><text class="lbl-txt">{{connected ? '断开' : '连接'}}</text></view>
+      </button>
+    </view>
+    <!-- 横屏：切换按钮靠最右（与截图一致） -->
+    <button class="orient {{pressed == 'orient' ? 'btn-down' : ''}}" wx:if="{{isLand}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="orient">
+      <view class="lbl"><view class="ico ico-orient"><view class="phone"></view></view><text class="lbl-txt">切换竖屏模式</text></view>
+    </button>
+  </view>
+
+  <!-- 竖屏：保留状态行（横屏隐藏以节省纵向空间） -->
+  <view class="statusrow" wx:if="{{!isLand}}">
+    <text class="status">状态：{{status}} ｜ 解锁：{{armed ? '是' : '否'}} ｜ 陀螺仪：{{gyroMode ? '开' : '关'}}</text>
+    <button class="orient {{pressed == 'orient' ? 'btn-down' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="orient">
+      <view class="lbl"><view class="ico ico-orient"><view class="phone"></view></view><text class="lbl-txt">切换横屏模式</text></view>
+    </button>
+  </view>
+
+  <!-- ======== 竖版：陀螺仪居中放大 + 机身姿态右上角 + 精简参数 ======== -->
+  <block wx:if="{{!isLand}}">
+    <view class="topinfo">
+      <view class="params">
+        <text class="pk2 {{tm.vx == '--' ? 'is-empty' : ''}}">速度 {{tm.vx}}, {{tm.vy}} m/s</text>
+        <text class="pk2 {{tm.alt == '--' ? 'is-empty' : ''}}">高度 {{tm.alt}} m</text>
+        <text class="pk2 {{tm.temp == '--' ? 'is-empty' : ''}}">温度 {{tm.temp}} °C</text>
+        <text class="pk2 {{tm.vbat == '--' ? 'is-empty' : ''}}">电压 {{tm.vbat}} V</text>
+        <text class="pk2 {{tm.yaw == '--' ? 'is-empty' : ''}}">航向 {{tm.yaw}}°</text>
+      </view>
+      <view class="att-corner">
+        <canvas type="2d" id="hud" class="hud-mini"></canvas>
+        <text class="att-cap">机身姿态 {{roll}}°/{{pitch}}°</text>
+      </view>
+    </view>
+
+    <view class="gyro-center">
+      <!-- 个性键：浮在模式行正上方的空白带里（绝对定位，不占流内高度）。
+           图标 = 一对上下并行箭头（一支朝上、一支朝下），本身就是"可切换"的意思。
+           点一下 3 档循环，文字显示当前档位；它不是状态键、不常亮呼吸 ——
+           常亮留给真正在跑的自动循迹 / 自动避障。
+           个性切换 = 换操作页面皮肤（--t-* 主题变量），与连接/解锁无关：
+           不挂 .off 灰化、不走 _needArmed 守卫，是全页唯一无飞行守卫的键。 -->
+      <view class="persona-row">
+        <view class="mode persona {{personaTick ? 'tick' : ''}} {{pressed == 'persona' ? 'btn-down' : ''}}"
+                bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                data-key="persona">
+          <view class="lbl">
+            <view class="ico ico-persona"><view class="pa pa-shaft up"></view><view class="pa pa-head up"></view><view class="pa pa-shaft dn"></view><view class="pa pa-head dn"></view></view>
+            <text class="lbl-txt">个性·{{persona}}</text>
+          </view>
+          <view class="fx-ring"></view>
+        </view>
+      </view>
+      <!-- 自动模式：陀螺仪正上方两枚开关键。
+           交互与其他键完全一致（同 onBtnDown/onBtnUp/onBtnCancel + data-key + btn-down 按下态 +
+           未解锁 .off 灰化）；区别只在语义 —— 按下翻转一次状态，键帽持续高亮表示"开着"，
+           再按一次关闭（下发见 _fireMode）。 -->
+      <view class="mode-row">
+        <view class="mode {{traceOn ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'trace' ? 'btn-down' : ''}}"
+                bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                data-key="trace">
+          <view class="lbl">
+            <view class="ico ico-trace"><view class="tr-ring"></view><view class="tr-dot"></view></view>
+            <text class="lbl-txt">自动循迹</text>
+          </view>
+          <view class="fx-ring"></view>
+        </view>
+        <view class="mode {{avoidOn ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'avoid' ? 'btn-down' : ''}}"
+                bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                data-key="avoid">
+          <view class="lbl">
+            <view class="ico ico-avoid"><view class="av-dot"></view><view class="av-arc av-arc1"></view><view class="av-arc av-arc2"></view></view>
+            <text class="lbl-txt">自动避障</text>
+          </view>
+          <view class="fx-ring"></view>
+        </view>
+      </view>
+      <!-- 圆盘 + 两侧四键的定位基准就是这一层（.gyro-stage 的高 = 圆盘直径）：
+           槽的 top:50% 从此等于圆盘圆心，上面多出模式行也不会把四键带偏。 -->
+      <view class="gyro-stage">
+        <canvas type="2d" id="gyro" class="gyro-big"></canvas>
+        <!-- 升降标尺：与爬升 / 下降联动，JS 逐帧实时演算（index.js _rlStep，16ms 差分 setData）。
+             方向类 up/dn 跟随速率 v 的符号（松手后随衰减保持方向、过零才消失）；
+             --rlh 充能高度% / --rltop 游标位置% / --rloff 刻度累计位移 / --rlf 充能细光位移 / --rla 三角拖尾透明度。
+             松手后刻度惯性减速、停在哪算哪，游标平滑滑回中点 —— 不再瞬时间归零回弹。 -->
+        <view class="lift-ruler {{rl.dir == 'up' ? 'up' : ''}} {{rl.dir == 'dn' ? 'dn' : ''}}"
+              style="--rlh:{{rl.h}}%;--rltop:{{rl.top}}%;--rloff:{{rl.off}}px;--rlf:{{rl.off * 2}}px;--rla:{{rl.a}}">
+          <view class="lr-chev up"></view>
+          <view class="lr-track"><view class="lr-fill"></view><view class="lr-dot"></view></view>
+          <view class="lr-chev dn"></view>
+        </view>
+        <view class="vz-slot left">
+          <view class="act act-leaf {{busyKey == 'leaf' ? 'busy' : ''}} {{armed ? '' : 'off'}} {{pressed == 'leaf' ? 'btn-down' : ''}}"
+                  bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                  data-key="leaf">
+            <view class="lbl">
+              <view class="ico ico-leaf"><view class="lf-body"></view><view class="lf-vein"></view></view>
+              <text class="lbl-txt">落叶飘</text>
+            </view>
+            <view class="fx-ring"></view>
+          </view>
+          <view class="climb {{vzDir == 'up' ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'climb' ? 'btn-down' : ''}}"
+                  bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                  data-key="climb">
+            <view class="lbl">
+              <view class="ico ico-lift"><view class="ar-head"></view><view class="ar-shaft"></view><view class="ar-base"></view></view>
+              <text class="lbl-txt">爬升</text>
+            </view>
+          </view>
+        </view>
+  <view class="vz-slot right">
+          <view class="act act-flip {{busyKey == 'flip' ? 'busy' : ''}} {{armed ? '' : 'off'}} {{pressed == 'flip' ? 'btn-down' : ''}}"
+                  bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                  data-key="flip">
+            <view class="lbl">
+              <view class="ico ico-flip"><view class="fp-ring"></view><view class="fp-head"></view></view>
+              <text class="lbl-txt">空翻</text>
+            </view>
+            <view class="fx-ring"></view>
+          </view>
+          <view class="descend {{vzDir == 'down' ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'descend' ? 'btn-down' : ''}}"
+                  bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                  data-key="descend">
+            <view class="lbl">
+              <view class="ico ico-land"><view class="ar-head"></view><view class="ar-shaft"></view><view class="ar-base"></view></view>
+              <text class="lbl-txt">下降</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <text class="gyro-cap">陀螺仪（手机倾斜 → 无人机移动）</text>
+    </view>
+
+    <view class="sticks">
+      <!-- 一键起飞（位置定稿）：两摇杆正中间、键底与摇杆下方文字齐平。
+           处理与特技键同一套：armed 守卫 + 抬手触发 + busyKey 600ms 编排；
+           ACTION.TAKEOFF=7 码位已预留。反馈全部走真实节点（真机不渲染伪元素动画）：
+           fx-ring ×2 外扩双环、to-halo 周边蓄力环（h1/h2/h3 + h4 彗星 + o1/o2 环绕光球）、to-charge 蓄力光、
+           fx-scan 扫描线（T2，background 载体）、fx-fill 液面（T3，background 载体）、
+           to-sweep 扫光带（background 载体）、to-spark 尾迹火花；
+           图标 to-head/to-shaft/to-base 的离地/跑道为节点动画。
+           ⚠️ 50% 圆键的 overflow:hidden 裁不住 transform 子节点（真机实测越圈），
+           起飞键一切运动层一律走 background-position 动画（背景天然裁进键体）。 -->
+      <view class="takeoff {{busyKey == 'takeoff' ? 'busy' : ''}} {{armed ? '' : 'off'}} {{pressed == 'takeoff' ? 'btn-down' : ''}} {{takeoffShake ? 'shake' : ''}}"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="takeoff">
+        <view class="fx-ring"></view>
+        <view class="fx-ring fx-ring2"></view>
+        <view class="to-halo"><view class="h1"></view><view class="h2"></view><view class="h3"></view><view class="h4"></view><view class="o1"></view><view class="o2"></view></view>
+        <view class="to-charge"></view>
+        <view class="fx-scan"></view>
+        <view class="fx-fill"><view class="p1"></view><view class="p2"></view><view class="p3"></view><view class="p4"></view><view class="p5"></view><view class="p6"></view></view>
+        <view class="to-flow"><view class="f-track"></view><view class="f-band"></view></view>
+        <view class="to-sweep"></view>
+        <view class="ico ico-takeoff"><view class="to-spark"></view><view class="to-head"></view><view class="to-shaft"></view><view class="to-base"></view></view>
+      </view>
+      <!-- 摇杆结构说明（4 处摇杆完全一致，改一处记得同步）：
+           .stick-base  底座（碗 + 按下态内圈）
+             .stick-layer 触及层：铺满底座，收全部触摸事件（catch 前缀，阻止页面滚动/下拉刷新）
+               .stick-knob 位移层：transform 由 setData 的 style 字符串驱动，pointer-events:none 不抢事件
+                 .knob-cap 可视圆帽（按下放大写在 class 上，与位移互不覆盖） -->
+      <view class="stick-wrap">
+        <view class="stick-base {{leftActive ? 'pressed' : ''}}" id="leftStick">
+          <!-- 跟随环：按住出现、跟着键帽走，推得越远收得越紧（位移/缩放由 JS 逐帧写进 style） -->
+          <view class="stick-ring" style="{{leftRingStyle}}"></view>
+          <view class="stick-layer" data-side="left"
+                      catchtouchstart="onStickStart" catchtouchmove="onStickMove"
+                      catchtouchend="onStickEnd" catchtouchcancel="onStickEnd">
+            <view class="stick-knob" style="{{leftKnobStyle}}"><view class="knob-cap"></view></view>
+          </view>
+        </view>
+        <text class="stick-label">移动（前后 / 左右）</text>
+      </view>
+      <view class="stick-wrap">
+        <view class="stick-base {{rightActive ? 'pressed' : ''}}" id="rightStick">
+          <!-- 跟随环：同左摇杆 -->
+          <view class="stick-ring" style="{{rightRingStyle}}"></view>
+          <view class="stick-layer" data-side="right"
+                      catchtouchstart="onStickStart" catchtouchmove="onStickMove"
+                      catchtouchend="onStickEnd" catchtouchcancel="onStickEnd">
+            <view class="stick-knob" style="{{rightKnobStyle}}"><view class="knob-cap"></view></view>
+          </view>
+        </view>
+        <text class="stick-label">偏航（左转 / 右转）</text>
+      </view>
+    </view>
+
+    <view class="motors {{armed ? 'on' : ''}}">
+      <view class="motor" wx:for="{{motors}}" wx:key="i">
+        <view class="m-bar"><view class="m-fill" style="transform: scaleY({{item.pct / 100}})"></view><view class="m-wave" style="bottom: calc({{item.pct}}% - 7rpx);"></view></view>
+        <text class="m-label">M{{item.i}}</text>
+        <text class="m-val">{{item.pct}}%</text>
+      </view>
+    </view>
+
+    <view class="runline">
+      <view class="badge {{stateClass}}">{{stateText}}</view>
+      <text class="rpmline" wx:if="{{rpmText}}">转速 {{rpmText}}</text>
+    </view>
+
+    <view class="controls">
+      <button class="arm {{armed ? 'armed' : ''}} {{armFx}} {{pressed == 'arm' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="arm">
+        <view class="lbl">
+          <view class="ico lock {{armed ? 'open' : ''}}">
+            <view class="lock-shackle"></view>
+            <view class="lock-body"></view>
+          </view>
+          <text class="lbl-txt">{{armed ? '已解锁（长按上锁）' : '已上锁（点此解锁）'}}</text>
+        </view>
+        <view class="fx-ring"></view>
+      </button>
+      <button class="gyro {{gyroMode ? 'on' : ''}} {{pressed == 'gyro' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="gyro">
+        <view class="lbl"><view class="ico ico-gyro"><view class="gy-ring"></view><view class="gy-axis"></view><view class="gy-dot"></view></view><text class="lbl-txt">{{gyroMode ? '关闭陀螺仪' : '开启陀螺仪'}}</text></view>
+        <view class="fx-ring"></view>
+      </button>
+    </view>
+
+    <view class="telemetry">{{telemetry}}</view>
+  </block>
+
+  <!-- ======== 横版：三列（左=参数+左摇杆 | 中=陀螺仪+电机/按钮 | 右=机身姿态+右摇杆） ======== -->
+  <block wx:else>
+    <view class="land-main">
+      <view class="land-grid">
+        <!-- 左列：参数（上） + 左摇杆（下，贴底） -->
+        <view class="land-col land-col-l">
+          <view class="land-params">
+            <text class="pk2 {{tm.vx == '--' ? 'is-empty' : ''}}">速度 {{tm.vx}}, {{tm.vy}} m/s</text>
+            <text class="pk2 {{tm.alt == '--' ? 'is-empty' : ''}}">高度 {{tm.alt}} m</text>
+            <text class="pk2 {{tm.temp == '--' ? 'is-empty' : ''}}">温度 {{tm.temp}} °C</text>
+            <text class="pk2 {{tm.vbat == '--' ? 'is-empty' : ''}}">电压 {{tm.vbat}} V</text>
+            <text class="pk2 {{tm.yaw == '--' ? 'is-empty' : ''}}">航向 {{tm.yaw}}°</text>
+          </view>
+          <view class="stick-wrap">
+            <view class="stick-base land-stick {{leftActive ? 'pressed' : ''}}" id="leftStick">
+              <!-- 跟随环：同竖屏左摇杆 -->
+              <view class="stick-ring" style="{{leftRingStyle}}"></view>
+              <view class="stick-layer" data-side="left"
+                      catchtouchstart="onStickStart" catchtouchmove="onStickMove"
+                      catchtouchend="onStickEnd" catchtouchcancel="onStickEnd">
+                <view class="stick-knob" style="{{leftKnobStyle}}"><view class="knob-cap"></view></view>
+              </view>
+            </view>
+            <text class="stick-label">移动（前后 / 左右）</text>
+          </view>
+        </view>
+
+        <!-- 中列：陀螺仪（垂直居中） + 底部电机/控制 -->
+        <view class="land-col land-col-c">
+          <view class="land-gyro">
+            <!-- 自动模式：陀螺仪正上方两枚开关键。
+                 交互与其他键完全一致（同 onBtnDown/onBtnUp/onBtnCancel + data-key + btn-down 按下态 +
+                 未解锁 .off 灰化）；区别只在语义 —— 按下翻转一次状态，键帽持续高亮表示"开着"，
+                 再按一次关闭（下发见 _fireMode）。 -->
+            <view class="mode-row">
+              <view class="mode {{traceOn ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'trace' ? 'btn-down' : ''}}"
+                      bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                      data-key="trace">
+                <view class="lbl">
+                  <view class="ico ico-trace"><view class="tr-ring"></view><view class="tr-dot"></view></view>
+                  <text class="lbl-txt">自动循迹</text>
+                </view>
+                <view class="fx-ring"></view>
+              </view>
+              <!-- 个性键（横屏）：并入模式行中位（2026-10-21 对调后 = 循迹·个性·避障）。
+                   交互与竖屏同一套（_firePersona：3 档循环 + 一次性 tick 外扩）；
+                   防读成开关三条：永不常亮（无 .on）、灰底、文字带档位。 -->
+              <view class="mode persona {{personaTick ? 'tick' : ''}} {{pressed == 'persona' ? 'btn-down' : ''}}"
+                      bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                      data-key="persona">
+                <view class="lbl">
+                    <view class="ico ico-persona"><view class="pa pa-shaft up"></view><view class="pa pa-head up"></view><view class="pa pa-shaft dn"></view><view class="pa pa-head dn"></view></view>
+                    <text class="lbl-txt">个性·{{persona}}</text>
+                  </view>
+                  <view class="fx-ring"></view>
+                </view>
+              <view class="mode {{avoidOn ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'avoid' ? 'btn-down' : ''}}"
+                      bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                      data-key="avoid">
+                <view class="lbl">
+                  <view class="ico ico-avoid"><view class="av-dot"></view><view class="av-arc av-arc1"></view><view class="av-arc av-arc2"></view></view>
+                  <text class="lbl-txt">自动避障</text>
+                </view>
+                <view class="fx-ring"></view>
+              </view>
+            </view>
+            <!-- 圆盘 + 两侧四键的定位基准（.land-stage 的高 = 圆盘直径） -->
+            <view class="land-stage">
+              <canvas type="2d" id="gyro" class="land-gyro-cv"></canvas>
+              <!-- 升降标尺（横屏）：盘外无空位（四槽贴列边），收进圆盘内左缘做 HUD 带。
+                   与竖屏共用同一套 rl 演算变量与方向类；定位与尺寸见 wxss 横屏覆盖段。 -->
+              <view class="lift-ruler {{rl.dir == 'up' ? 'up' : ''}} {{rl.dir == 'dn' ? 'dn' : ''}}"
+                    style="--rlh:{{rl.h}}%;--rltop:{{rl.top}}%;--rloff:{{rl.off}}px;--rlf:{{rl.off * 2}}px;--rla:{{rl.a}}">
+                <view class="lr-chev up"></view>
+                <view class="lr-track"><view class="lr-fill"></view><view class="lr-dot"></view></view>
+                <view class="lr-chev dn"></view>
+              </view>
+              <view class="vz-slot left">
+                <view class="act act-leaf {{busyKey == 'leaf' ? 'busy' : ''}} {{armed ? '' : 'off'}} {{pressed == 'leaf' ? 'btn-down' : ''}}"
+                        bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                        data-key="leaf">
+                  <view class="lbl">
+                    <view class="ico ico-leaf"><view class="lf-body"></view><view class="lf-vein"></view></view>
+                    <text class="lbl-txt">落叶飘</text>
+                  </view>
+                  <view class="fx-ring"></view>
+                </view>
+                <view class="climb {{vzDir == 'up' ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'climb' ? 'btn-down' : ''}}"
+                        bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                        data-key="climb">
+                  <view class="lbl">
+                    <view class="ico ico-lift"><view class="ar-head"></view><view class="ar-shaft"></view><view class="ar-base"></view></view>
+                    <text class="lbl-txt">爬升</text>
+                  </view>
+                </view>
+              </view>
+              <view class="vz-slot right">
+                <view class="act act-flip {{busyKey == 'flip' ? 'busy' : ''}} {{armed ? '' : 'off'}} {{pressed == 'flip' ? 'btn-down' : ''}}"
+                        bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                        data-key="flip">
+                  <view class="lbl">
+                    <view class="ico ico-flip"><view class="fp-ring"></view><view class="fp-head"></view></view>
+                    <text class="lbl-txt">空翻</text>
+                  </view>
+                  <view class="fx-ring"></view>
+                </view>
+                <view class="descend {{vzDir == 'down' ? 'on' : ''}} {{armed ? '' : 'off'}} {{pressed == 'descend' ? 'btn-down' : ''}}"
+                        bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                        data-key="descend">
+                  <view class="lbl">
+                    <view class="ico ico-land"><view class="ar-head"></view><view class="ar-shaft"></view><view class="ar-base"></view></view>
+                    <text class="lbl-txt">下降</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+            <text class="gyro-cap">陀螺仪（手机倾斜 → 无人机移动）</text>
+          </view>
+          <view class="land-bottom">
+            <view class="motors land-motors {{armed ? 'on' : ''}}">
+              <view class="motor" wx:for="{{motors}}" wx:key="i">
+                <view class="m-bar"><view class="m-fill" style="transform: scaleY({{item.pct / 100}})"></view><view class="m-wave" style="bottom: calc({{item.pct}}% - 7rpx);"></view></view>
+                <text class="m-label">M{{item.i}}</text>
+              </view>
+            </view>
+            <view class="controls land-controls">
+              <button class="arm {{armed ? 'armed' : ''}} {{armFx}} {{pressed == 'arm' ? 'btn-down' : ''}}" hover-class="none"
+                      bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                      data-key="arm">
+                <view class="lbl">
+                  <view class="ico lock {{armed ? 'open' : ''}}">
+                    <view class="lock-shackle"></view>
+                    <view class="lock-body"></view>
+                  </view>
+                  <text class="lbl-txt">{{armed ? '上锁' : '解锁'}}</text>
+                </view>
+                <view class="fx-ring"></view>
+              </button>
+              <button class="gyro {{gyroMode ? 'on' : ''}} {{pressed == 'gyro' ? 'btn-down' : ''}}" hover-class="none"
+                      bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                      data-key="gyro">
+                <view class="lbl"><view class="ico ico-gyro"><view class="gy-ring"></view><view class="gy-axis"></view><view class="gy-dot"></view></view><text class="lbl-txt">{{gyroMode ? '关陀螺' : '开陀螺'}}</text></view>
+                <view class="fx-ring"></view>
+              </button>
+            </view>
+          </view>
+        </view>
+
+        <!-- 右列：机身姿态（上，靠右） + 右摇杆（下，贴底） -->
+        <view class="land-col land-col-r">
+          <!-- 一键起飞（位置定稿）：机身姿态左边的空白带（左挪 0.6vw、下挪 4.5vh 顶边锚定）。
+               结构/处理与竖屏同一套（见竖屏 sticks 注释）。 -->
+          <view class="takeoff {{busyKey == 'takeoff' ? 'busy' : ''}} {{armed ? '' : 'off'}} {{pressed == 'takeoff' ? 'btn-down' : ''}} {{takeoffShake ? 'shake' : ''}}"
+                bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+                data-key="takeoff">
+            <view class="fx-ring"></view>
+            <view class="fx-ring fx-ring2"></view>
+            <view class="to-halo"><view class="h1"></view><view class="h2"></view><view class="h3"></view><view class="h4"></view><view class="o1"></view><view class="o2"></view></view>
+            <view class="to-charge"></view>
+            <view class="fx-scan"></view>
+            <view class="fx-fill"><view class="p1"></view><view class="p2"></view><view class="p3"></view><view class="p4"></view><view class="p5"></view><view class="p6"></view></view>
+            <view class="to-flow"><view class="f-track"></view><view class="f-band"></view></view>
+            <view class="to-sweep"></view>
+            <view class="ico ico-takeoff"><view class="to-spark"></view><view class="to-head"></view><view class="to-shaft"></view><view class="to-base"></view></view>
+          </view>
+          <view class="land-att">
+            <canvas type="2d" id="hud" class="land-hud"></canvas>
+            <text class="att-cap">机身姿态</text>
+          </view>
+          <view class="stick-wrap">
+            <view class="stick-base land-stick {{rightActive ? 'pressed' : ''}}" id="rightStick">
+              <!-- 跟随环：同竖屏右摇杆 -->
+              <view class="stick-ring" style="{{rightRingStyle}}"></view>
+              <view class="stick-layer" data-side="right"
+                      catchtouchstart="onStickStart" catchtouchmove="onStickMove"
+                      catchtouchend="onStickEnd" catchtouchcancel="onStickEnd">
+                <view class="stick-knob" style="{{rightKnobStyle}}"><view class="knob-cap"></view></view>
+              </view>
+            </view>
+            <text class="stick-label">偏航（左转 / 右转）</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="telemetry land-telemetry">{{telemetry}}</view>
+  </block>
+</view>

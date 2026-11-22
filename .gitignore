@@ -1,0 +1,13 @@
+# 本地个人配置（含真实 appid，不进仓库）
+project.config.json
+project.private.config.json
+
+# 开发中间产物
+utils/_noise_b64.txt
+utils/_noise_js.txt
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+*.log
+node_modules/

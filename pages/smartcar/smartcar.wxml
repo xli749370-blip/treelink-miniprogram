@@ -1,0 +1,127 @@
+<!-- ===========================================================================
+智能车控制页（2026-10-24 落地，架构移植自平衡车页已验证体系）
+结构（竖屏，全部绝对定位，与 balance 页同骨架）：
+  .top       顶部状态行：连接胶囊 + 横竖屏切换键 + 个性键 + IP/端口或电量
+  .dial      中央仪表盘：canvas 速度弧 + 循迹/避障状态芯片 + 速度读数
+             + 行驶状态字 + 前方距离读数（车控回传 dist，选发）
+  .feat      功能键行：循迹 / 避障 / 灯光（前两个 = ACTION.TRACE_ON/OFF、
+             AVOID_ON/OFF 模式开关，动作帧连发 3 帧同 seq）
+  .stick     行驶摇杆（前后速度 左右转向）
+  .main-key  行驶主键（点按启动 / 长按关闭 / 未连接拒绝）
+纪律（全部承自 balance/index 页，勿破）：
+  · 键体 transform/box-shadow 只归按下；动效走真实节点（真机不渲染伪元素动画）
+  · 背景只由 .page 一层绘制（theme-N 换 --t-bg-* token）
+  · 摇杆 catchtouch* 逻辑层 + 16ms 按帧合并 + 0.5px 量化 + 前沿即时下发
+============================================================================ -->
+<view class="page page-enter theme-{{persona}} {{isLand ? 'land' : ''}} {{flip ? 'flip' : ''}}">
+  <view class="body" style="top: {{padTop}}px">
+    <!-- 灯光开启时仪表区底部亮起暖光（overlay，pointer-events:none） -->
+    <view class="headlight {{lightOn ? 'on' : ''}}"></view>
+
+    <!-- ======== 顶部状态行 ======== -->
+    <view class="top">
+      <view class="top-g">
+        <view class="pill conn {{connecting ? 'connecting' : ''}} {{pressed == 'conn' ? 'btn-down' : ''}}"
+              hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="conn">
+          <view class="dot"></view>
+          <text>{{connText}}</text>
+        </view>
+        <view class="or-btn {{pressed == 'orient' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="orient">
+          <view class="or-ico"><view class="or-home"></view></view>
+        </view>
+        <view class="persona-key {{pressed == 'persona' ? 'btn-down' : ''}}" hover-class="none"
+              bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+              data-key="persona">
+          <text class="pk-cap">个性</text>
+          <text class="pk-n">{{persona}}</text>
+        </view>
+      </view>
+      <block wx:if="{{!connected}}">
+        <input class="ip" value="{{ip}}" bindinput="onIp" placeholder="车控 IP" />
+        <input class="port" value="{{port}}" bindinput="onPort" placeholder="端口" type="number" />
+      </block>
+      <view class="pill batt" wx:else>
+        <view class="batt-case"><view class="batt-fill" style="width: {{battPct}}%"></view></view>
+        <text>{{tm.vbat}} V</text>
+      </view>
+    </view>
+
+    <!-- ======== 中央仪表盘 ======== -->
+    <view class="dial">
+      <canvas type="2d" id="dial" class="dial-cv"></canvas>
+      <!-- 循迹 / 避障状态芯片（跟随功能键开关，2s 呼吸 = 自动模式在跑） -->
+      <view class="dial-chips">
+        <view class="dial-chip {{traceOn ? 'on' : ''}}">
+          <view class="c-dot"></view><text>循迹</text>
+        </view>
+        <view class="dial-chip {{avoidOn ? 'on' : ''}}">
+          <view class="c-dot"></view><text>避障</text>
+        </view>
+      </view>
+      <view class="speed">
+        <view class="num {{running ? 'is-run' : ''}}">{{spdText}}</view>
+        <view class="unit">KM/H</view>
+      </view>
+      <view class="run-state {{running ? 'is-run' : ''}}">{{runText}}</view>
+      <view class="dist-read {{distNear ? 'near' : ''}}">前方 {{distText}} cm</view>
+    </view>
+
+    <!-- ======== 功能键行（循迹 / 避障 / 灯光） ======== -->
+    <view class="feat">
+      <view class="key {{traceOn ? 'mode-on' : ''}} {{pressed == 'trace' ? 'btn-down' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="trace">
+        <view class="k-ico ico-trace"><view class="tk-d0"></view><view class="tk-s1"></view><view class="tk-s2"></view><view class="tk-s3"></view></view>
+        <text class="k-lbl">{{traceOn ? '循迹中' : '循迹'}}</text>
+        <view class="fx-ring {{traceFx}}"></view>
+      </view>
+      <view class="key {{avoidOn ? 'mode-on' : ''}} {{pressed == 'avoid' ? 'btn-down' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="avoid">
+        <view class="k-ico ico-avoid"><view class="av-dot"></view><view class="av-w1"></view><view class="av-w2"></view></view>
+        <text class="k-lbl">{{avoidOn ? '避障中' : '避障'}}</text>
+        <view class="fx-ring {{avoidFx}}"></view>
+      </view>
+      <view class="key {{lightOn ? 'light-on' : ''}} {{pressed == 'light' ? 'btn-down' : ''}}" hover-class="none"
+            bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+            data-key="light">
+        <view class="k-ico ico-light"><view class="lt-body"></view><view class="lt-beam"></view></view>
+        <text class="k-lbl">{{lightOn ? '已开' : '灯光'}}</text>
+        <view class="fx-ring {{lightFx}}"></view>
+      </view>
+    </view>
+
+    <!-- ======== 行驶摇杆（配方同平衡车页） ======== -->
+    <view class="stick {{stickFwd ? 'fwd' : ''}} {{stickBack ? 'back' : ''}}" id="driveStick">
+      <view class="stick-hint"></view>
+      <view class="stick-hint2"></view>
+      <view class="stick-layer"
+            catchtouchstart="onStickStart" catchtouchmove="onStickMove"
+            catchtouchend="onStickEnd" catchtouchcancel="onStickEnd">
+        <view class="stick-knob" style="{{knobStyle}}">
+          <view class="stick-cap {{stickActive ? 'grab' : ''}}"><view class="cap-dot"></view></view>
+        </view>
+      </view>
+    </view>
+    <view class="stick-name">行驶摇杆 · 前后速度 左右转向</view>
+
+    <!-- ======== 行驶主键（点按启动 / 长按 800ms 关闭 / 未连接拒绝） ======== -->
+    <view class="main-key {{running ? 'running' : ''}} {{mainRefuse ? 'to-refuse' : ''}} {{pressed == 'main' ? 'btn-down' : ''}}" hover-class="none"
+          bindtouchstart="onBtnDown" bindtouchend="onBtnUp" bindtouchcancel="onBtnCancel"
+          data-key="main">
+      <view class="mk-face"></view>
+      <view class="scan"></view>
+      <view class="mk-ico"><view class="sc-body"></view><view class="sc-w w1"></view><view class="sc-w w2"></view><view class="sc-w w3"></view><view class="sc-w w4"></view><view class="sc-sen"></view></view>
+      <text class="mk-lbl">{{running ? '行驶中' : '启动行驶'}}</text>
+      <view class="fx-ring {{mainFx}}"></view>
+    </view>
+    <view class="main-key-name">行驶主键</view>
+
+    <view class="telemetry">{{telemetryText}}</view>
+    <view class="homebar"></view>
+  </view>
+</view>
